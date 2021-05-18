@@ -1,14 +1,22 @@
 {
   "name": "hls-media-server",
   "version": "1.0.0",
-  "description": "",
+  "description": "Node server to transcode video files and stream on the fly via HLS.",
   "main": "index.js",
   "scripts": {
     "start": "node ./index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "mcoop320",
   "license": "ISC",
+  "keywords": [
+    "hls",
+    "node",
+    "ffmpeg",
+    "stream",
+    "vod",
+    "server"
+  ],
   "dependencies": {
     "chokidar": "^3.5.1",
     "dotenv": "^9.0.2",
