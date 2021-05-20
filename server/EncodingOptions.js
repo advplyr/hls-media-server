@@ -15,6 +15,8 @@ class EncodingOptions {
     this.fileInfo = fileInfo
   }
 
+  get numberOfSegments() { return Math.floor(this.duration / this.segmentLength) + 1 }
+
   get videoDisplaySize() { return `${this.encodeSize.width}x${this.encodeSize.height}` }
   get videoDisplayBitrate() { return formatBytes(this.videoBitrate) }
   get encodeVideoDisplay() { return `${this.videoEncoder} [${this.videoDisplayBitrate}] (${this.videoDisplaySize})` }

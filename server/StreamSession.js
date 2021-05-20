@@ -3,9 +3,9 @@ var fs = require('fs-extra')
 var Path = require('path')
 var chokidar = require('chokidar')
 var Ffmpeg = require('fluent-ffmpeg')
-var Logger = require('./helpers/logger')
+var Logger = require('./Logger')
 var playlistGenerator = require('./helpers/playlistGenerator')
-
+var progressbar = require('./helpers/progressbar')
 class StreamSession extends EventsEmitter {
   constructor(name, fileInfo, encodingOptions, outputPath = process.env.OUTPUT_PATH) {
     super()
@@ -16,14 +16,17 @@ class StreamSession extends EventsEmitter {
     this.ffmpeg = null
     this.ffmpegLogLevel = '-loglevel warning'
     this.playlistName = 'index'
+    this.masterPlaylistName = 'master'
     this.segmentName = 'index'
     this.encodingOptions = encodingOptions
 
     this.streamPath = Path.resolve(outputPath, name)
+    this.masterPlaylistPath = Path.resolve(this.streamPath, this.masterPlaylistName + '.m3u8')
     this.playlistPath = Path.resolve(this.streamPath, this.playlistName + '.m3u8')
 
     this.currentSegment = 0
     this.encodeStart = 0
+    this.encodeComplete = false
     this.segmentsFetched = new Set()
     this.segmentsCreated = new Set()
 
@@ -31,15 +34,25 @@ class StreamSession extends EventsEmitter {
     this.initWatcher()
 
     process.on('SIGINT', async () => {
-      Logger.log('Signal interruption')
-      await this.cleanupMess()
-      Logger.log('Exited gracefully, my liege')
+      Logger.log('[PROCESS] Signal interruption')
+      await this.cleanupMess('SIGINT')
+      Logger.log('[PROCESS] Exited gracefully, my liege')
       process.exit(0)
     })
   }
 
   get url() {
-    return `http://localhost:4000/${this.name}/${this.playlistName + '.m3u8'}`
+    return `http://localhost:4000/${this.name}/${this.masterPlaylistName + '.m3u8'}`
+  }
+
+  get fileDurationPretty() {
+    return this.fileInfo ? this.fileInfo.durationPretty : 'Unknown'
+  }
+
+  updateProgressBar() {
+    var createdSegments = Array.from(this.segmentsCreated.values())
+    var fetchedSegments = Array.from(this.segmentsFetched.values())
+    progressbar.build(createdSegments, fetchedSegments, this.encodingOptions.numberOfSegments, this.currentSegment)
   }
 
   getSegmentNumberFromPath(path) {
@@ -48,6 +61,13 @@ class StreamSession extends EventsEmitter {
     var basename = Path.basename(path, extname).replace(this.segmentName, '')
     if (isNaN(basename)) return false
     return Number(basename)
+  }
+
+  setSegmentFetched(segment) {
+    this.segmentsFetched.add(segment)
+    if (this.encodeComplete) {
+      this.updateProgressBar()
+    }
   }
 
   initWatcher() {
@@ -72,7 +92,7 @@ class StreamSession extends EventsEmitter {
 
   onNewFile(path) {
     if (path.endsWith('.m3u8')) {
-      Logger.log('Playlist created')
+      Logger.verbose('Playlist created')
       return
     }
     var segment = this.getSegmentNumberFromPath(path)
@@ -80,19 +100,20 @@ class StreamSession extends EventsEmitter {
       Logger.log('Invalid segment written', path)
       return
     }
-    Logger.log('New segment created', segment)
+
     this.segmentsCreated.add(segment)
+    this.updateProgressBar()
   }
 
-  async waitForSegment(filePath, attempts = 0) {
-    if (attempts >= 5) return false
+  async waitForSegment(segmentNumber, filePath, attempts = 0) {
+    if (attempts >= 10) return false
 
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     var exists = await fs.pathExists(filePath)
     if (!exists) {
-      Logger.log('Wait for seg attempt', attempts, 'failed')
-      return this.waitForSegment(filePath, ++attempts)
+      Logger.log(`[REQUEST] Wait for segment ${segmentNumber} attempt ${attempts} failed`)
+      return this.waitForSegment(segmentNumber, filePath, ++attempts)
     } else {
       return true
     }
@@ -101,7 +122,7 @@ class StreamSession extends EventsEmitter {
   getShouldStartNewEncode(segmentNumberRequested) {
     var distanceFromCurrentSegment = segmentNumberRequested - this.currentSegment
     if (distanceFromCurrentSegment > 10) {
-      Logger.warn('Dsitance is too great... start new transcode')
+      Logger.warn('Distance is too great... start new transcode')
       return true
     } else if (distanceFromCurrentSegment < 0) {
       Logger.warn('This is in the past... start new trasnscode')
@@ -122,11 +143,18 @@ class StreamSession extends EventsEmitter {
 
   async generatePlaylist() {
     await fs.ensureDir(this.streamPath)
-    return playlistGenerator(this.playlistPath, this.segmentName, this.encodingOptions)
+    return playlistGenerator(this.masterPlaylistPath, this.playlistPath, this.playlistName, this.segmentName, this.encodingOptions)
   }
 
   async run() {
     this.encodeStart = Date.now()
+    this.encodeComplete = false
+
+    if (Logger.isShowingProgressBar) {
+      Logger.clearProgress()
+    }
+
+    Logger.session = this
 
     this.ffmpeg = Ffmpeg()
     this.ffmpeg.addInput(this.fileInfo.filepath)
@@ -142,22 +170,29 @@ class StreamSession extends EventsEmitter {
       .addOption(this.encodingOptions.hlsOptions)
       .output(this.playlistPath)
 
-    this.ffmpeg.on('start', (command) =>
+    this.ffmpeg.on('start', (command) => {
       Logger.log('[INFO] FFMPEG transcoding started with command: ' + command)
-    )
+      this.updateProgressBar()
+    })
 
     this.ffmpeg.on('stderr', (stdErrline) =>
       Logger.error(stdErrline)
     )
 
     this.ffmpeg.on('error', (err, stdout, stderr) => {
-      Logger.error(err.message)
-      this.cleanupMess()
+      if (err.message && err.message.includes('SIGKILL')) {
+        // This is an intentional SIGKILL
+        Logger.info('[FFMPEG] Transcode Killed')
+      } else {
+        Logger.error('Ffmpeg Err', err.message)
+        this.cleanupMess('FfmpegErr')
+      }
     })
 
     this.ffmpeg.on('end', (stdout, stderr) => {
       this.emit('end', this.name)
-      Logger.log('[INFO] Transcoding ended')
+      this.encodeComplete = true
+      Logger.log('[FFMPEG] Transcoding ended')
     })
 
     this.ffmpeg.run()
@@ -174,7 +209,8 @@ class StreamSession extends EventsEmitter {
     })
   }
 
-  cleanupMess() {
+  cleanupMess(caller = 'unknown') {
+    console.log('Cleaning up mess', caller)
     this.stop()
     return this.deleteAllFiles()
   }
@@ -203,6 +239,8 @@ class StreamSession extends EventsEmitter {
     this.ffmpeg.kill('SIGKILL')
 
     var startTime = segmentNumber * this.encodingOptions.segmentLength
+
+    Logger.clearProgress()
     Logger.log('Restart encode @', startTime + 's', 'Segment:', segmentNumber)
 
     this.encodingOptions.segmentStart = segmentNumber

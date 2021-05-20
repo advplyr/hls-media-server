@@ -1,6 +1,6 @@
 {
   "name": "hls-media-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Node server to transcode video files and stream on the fly via HLS.",
   "main": "index.js",
   "scripts": {
@@ -18,10 +18,12 @@
     "server"
   ],
   "dependencies": {
+    "chalk": "^4.1.1",
     "chokidar": "^3.5.1",
     "dotenv": "^9.0.2",
     "express": "^4.17.1",
     "fluent-ffmpeg": "^2.1.2",
-    "fs-extra": "^10.0.0"
+    "fs-extra": "^10.0.0",
+    "terminal-overwrite": "^2.0.1"
   }
 }

@@ -1,7 +1,7 @@
 var express = require('express')
 var Path = require('path')
 var fs = require('fs-extra')
-var Logger = require('./helpers/logger')
+var Logger = require('./Logger')
 var clientGenerator = require('./helpers/clientGenerator')
 var StreamSession = require('./StreamSession')
 var FileInfo = require('./FileInfo')
@@ -90,7 +90,7 @@ class MediaServer {
 
   handleStreamRequest(req, res, sendToPlayer) {
     var filename = req.params.filename
-    var sessionName = req.query.name || Path.basename(filename, Path.extname(filename))
+    var sessionName = req.query.name || Path.basename(filename)
     if (this.sessions[sessionName]) {
       return res.status(500).send('Oops, a session is already running with this name')
     }
@@ -125,22 +125,22 @@ class MediaServer {
       segmentNumber = Number(basename.replace('index', ''))
 
       var distanceFromCurrentSegment = segmentNumber - hlsSession.currentSegment
-      Logger.log('Fetching segment', segmentNumber, 'Distance', distanceFromCurrentSegment)
+      Logger.log('[REQUEST] Fetching segment', segmentNumber)
       if (distanceFromCurrentSegment === 10) {
         hlsSession.currentSegment++
       }
     } else {
-      Logger.log('Fetching playlist', filePath)
+      Logger.log('[REQUEST] Fetching playlist', filePath)
     }
 
     var fileExists = hlsSession.segmentsFetched.has(segmentNumber) || await fs.pathExists(filePath)
     if (!fileExists) {
       if (!isSegment) {
-        Logger.error('Playlist does not exist...', filePath)
+        Logger.error('[REQUEST] Playlist does not exist...', filePath)
         return res.sendStatus(400)
       }
 
-      Logger.log('Segment does not exist...', filePath)
+      Logger.verbose('[REQUEST] Segment does not exist...', filePath)
 
       if (hlsSession.getShouldStartNewEncode(segmentNumber)) {
         var isRestarted = await hlsSession.restart(segmentNumber)
@@ -149,16 +149,15 @@ class MediaServer {
         }
       }
 
-      var segmentLoaded = await hlsSession.waitForSegment(filePath)
-      if (segmentLoaded) {
-        Logger.log('Segment loaded now', segmentNumber)
-        hlsSession.segmentsFetched.add(segmentNumber)
-      } else {
-        Logger.error('Segment still not loaded', segmentNumber)
+      var segmentLoaded = await hlsSession.waitForSegment(segmentNumber, filePath)
+      if (!segmentLoaded) {
+        Logger.error(`Segment ${segmentNumber} still not loaded`)
         return res.sendStatus(404)
       }
-    } else if (isSegment) {
-      hlsSession.segmentsFetched.add(segmentNumber)
+    }
+
+    if (isSegment) {
+      hlsSession.setSegmentFetched(segmentNumber)
     }
 
     res.sendFile(filePath, (err) => {

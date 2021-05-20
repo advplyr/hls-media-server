@@ -10,6 +10,16 @@ class FileInfo {
   get duration() {
     return this.metadata.duration
   }
+  get durationPretty() {
+    var seconds = this.duration
+    var minutes = Math.floor(seconds / 60)
+    seconds = seconds - (minutes * 60)
+    var hours = Math.floor(minutes / 60)
+    minutes = minutes - (hours * 60)
+    seconds = Math.trunc(seconds)
+    if (hours > 0) return `${hours}hr ${minutes}m ${seconds}s`
+    return `${minutes}m ${seconds}s`
+  }
 
   get videoDisplayTitle() { return this.videoStream.display_title }
   get videoDisplaySize() { return `${this.videoWidth}x${this.videoHeight}` }
