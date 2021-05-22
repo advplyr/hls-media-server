@@ -59,7 +59,7 @@ class Logger {
     var sessionNameLine = this.padCenter(titleLine)
 
     var log = this.currentLog
-    var loglen = this.getActualLength(line)
+    var loglen = this.getActualLength(this.currentLog)
     if (loglen > BOX_WIDTH - 4) log = this.currentLog.slice(0, BOX_WIDTH - 8) + '...'
     var lines = [sessionNameLine, '=', log, '-', ...this.progressLines]
 
