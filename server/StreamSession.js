@@ -159,9 +159,9 @@ class StreamSession extends EventsEmitter {
     this.ffmpeg = Ffmpeg()
     this.ffmpeg.addInput(this.fileInfo.filepath)
     if (this.encodingOptions.segmentStart > 0) {
-      var startTime = this.encodingOptions.segmentStart * this.encodingOptions.segmentLength
-      var startTimestamp = this.getTimestamp(startTime)
-      this.ffmpeg.inputOption(`-ss ${startTimestamp}`)
+      var startTime = this.encodingOptions.segmentStart * this.encodingOptions.actualSegmentLength
+      // var startTimestamp = this.getTimestamp(startTime)
+      this.ffmpeg.inputOption(`-ss ${startTime}`)
       this.ffmpeg.inputOption('-noaccurate_seek')
     }
 
@@ -238,7 +238,7 @@ class StreamSession extends EventsEmitter {
 
     this.ffmpeg.kill('SIGKILL')
 
-    var startTime = segmentNumber * this.encodingOptions.segmentLength
+    var startTime = segmentNumber * this.encodingOptions.actualSegmentLength
 
     Logger.clearProgress()
     Logger.log('Restart encode @', startTime + 's', 'Segment:', segmentNumber)

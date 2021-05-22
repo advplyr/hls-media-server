@@ -68,6 +68,10 @@ class FileInfo {
     return this.videoStream ? this.videoStream.bit_rate : null
   }
 
+  get frameRate() {
+    return this.videoStream ? this.videoStream.frame_rate : null
+  }
+
   get audioCodec() {
     return this.audioStream ? this.audioStream.codec : null
   }

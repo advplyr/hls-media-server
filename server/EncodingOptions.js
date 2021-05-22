@@ -15,7 +15,12 @@ class EncodingOptions {
     this.fileInfo = fileInfo
   }
 
-  get numberOfSegments() { return Math.floor(this.duration / this.segmentLength) + 1 }
+  get actualSegmentLengthString() {
+    var segmentLengthAdjustment = this.frameRateNTSC ? this.segmentLength : 0
+    return `${this.segmentLength}.00${segmentLengthAdjustment}000`
+  }
+  get actualSegmentLength() { return Number(this.actualSegmentLengthString) }
+  get numberOfSegments() { return Math.ceil(this.duration / this.actualSegmentLength) }
 
   get videoDisplaySize() { return `${this.encodeSize.width}x${this.encodeSize.height}` }
   get videoDisplayBitrate() { return formatBytes(this.videoBitrate) }
@@ -36,6 +41,14 @@ class EncodingOptions {
       width,
       height
     }
+  }
+
+  get encodeFrameRate() {
+    return this.fileInfo.frameRate || 24
+  }
+
+  get frameRateNTSC() {
+    return this.encodeFrameRate % 1 !== 0
   }
 
   get audioBitrate() {
@@ -79,10 +92,16 @@ class EncodingOptions {
       }
     }
 
+    var frameRate = this.encodeFrameRate
+    var gopSize = frameRate * this.segmentLength
+
     var options = [
+      '-threads 0',
       '-map_metadata -1',
       '-map_chapters -1',
       ...maps,
+      `-r ${frameRate}`,
+      '-sc_threshold 0', // Disable scene detection cuts. Could be a bad move.
       `-codec:v:0 ${this.videoEncoder}`,
       '-pix_fmt yuv420p',
       '-preset veryfast',
@@ -91,8 +110,14 @@ class EncodingOptions {
       `-bufsize ${this.videoBitrate * 2}`,
       '-profile:v:0 high',
       '-level 41',
-      `-force_key_frames:0 expr:gte(t,${this.segmentStart * this.segmentLength}+n_forced*${this.segmentLength})`,
-      '-x264opts:0 subme=0:me_range=4:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none',
+      '-g ' + gopSize,
+
+      // The Jellyfin method of getting static segment lengths for x264 encodes. This is a) not codec neutral and b) every 10 - 15th segment was off.
+      /*
+      `-force_key_frames expr:gte(t,${this.segmentStart * this.segmentLength}+n_forced*${this.segmentLength})`,
+      `-x264opts subme=0:me_range=4:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none`,
+      */
+
       scaler,
       '-start_at_zero',
       '-vsync -1'
@@ -101,6 +126,10 @@ class EncodingOptions {
       options.push(`-codec:a:0 ${this.audioEncoder}`) // Todo: select correct audio index here
       options.push(`-ac ${this.audioChannels}`)
       options.push(`-ab ${this.audioBitrate}`)
+
+      // Audio stream to start at the same position as video stream, padding with silence if needed.
+      // Taken From: https://videoblerg.wordpress.com/2017/11/10/ffmpeg-and-how-to-use-it-wrong/
+      options.push('-af aresample=async=1:min_hard_comp=0.100000:first_pts=0')
     }
     return options
   }

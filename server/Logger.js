@@ -1,7 +1,7 @@
 var terminalOverwrite = require('terminal-overwrite')
 const BOX_WIDTH = 104
 
-class Loggeroo {
+class Logger {
   constructor() {
     this.logLevel = process.env.LOG_LEVEL
 
@@ -28,9 +28,13 @@ class Loggeroo {
     for (let i = 0; i < BOX_WIDTH - 2; i++) str += (double ? '═' : '┄')
     return str + (double ? '╣' : '╢')
   }
+  getActualLength(str) {
+    if (!str) return 0
+    return str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '').length
+  }
 
   padEnd(line, padchar = ' ') {
-    var linelen = line.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '').length
+    var linelen = this.getActualLength(line)
     var numPadding = (BOX_WIDTH - 4) - linelen
     var padstr = ''
     for (let i = 0; i < numPadding; i++) padstr += padchar
@@ -38,7 +42,7 @@ class Loggeroo {
   }
 
   padCenter(line, padchar = ' ') {
-    var linelen = line.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '').length
+    var linelen = this.getActualLength(line)
     var numPadding = ((BOX_WIDTH - 4) - linelen)
     numPadding = Math.floor(numPadding / 2)
 
@@ -54,7 +58,10 @@ class Loggeroo {
     var titleLine = `${this.progressSessionName} (${this.progressSessionDuration})`
     var sessionNameLine = this.padCenter(titleLine)
 
-    var lines = [sessionNameLine, '=', this.currentLog, '-', ...this.progressLines]
+    var log = this.currentLog
+    var loglen = this.getActualLength(line)
+    if (loglen > BOX_WIDTH - 4) log = this.currentLog.slice(0, BOX_WIDTH - 8) + '...'
+    var lines = [sessionNameLine, '=', log, '-', ...this.progressLines]
 
     var logstr = top + '\n'
     lines.forEach((line) => {
@@ -122,4 +129,4 @@ class Loggeroo {
     console.error(...msg)
   }
 }
-module.exports = new Loggeroo()
+module.exports = new Logger()

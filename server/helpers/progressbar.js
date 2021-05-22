@@ -23,7 +23,6 @@ module.exports.build = (segmentsCreated, segmentsFetched, totalSegments, current
 
   var numberOfChunks = 100
   if (totalSegments < numberOfChunks) numberOfChunks = totalSegments
-  else if (totalSegments < numberOfChunks * 8) numberOfChunks = totalSegments / 2
 
   var segmentsPerChar = Math.floor(totalSegments / numberOfChunks)
 

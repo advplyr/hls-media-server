@@ -1,6 +1,5 @@
 var fs = require('fs-extra')
 
-
 function generateMasterPlaylist(masterPlaylistPath, playlistName, encodingOptions) {
   var m3u8 = '#EXTM3U\n'
 
@@ -15,7 +14,7 @@ function generateMasterPlaylist(masterPlaylistPath, playlistName, encodingOption
   var resolution = encodingOptions.videoDisplaySize
 
   // TODO: Set correct bandwidth & frame rate
-  var variation = `#EXT-X-STREAM-INF:BANDWIDTH=3000000,AVERAGE-BANDWIDTH=3000000,VIDEO-RANGE=SDR,CODECS="${codecStrings.join(',')}",RESOLUTION=${resolution},FRAME-RATE=23.976`
+  var variation = `#EXT-X-STREAM-INF:BANDWIDTH=3003000,AVERAGE-BANDWIDTH=3003000,VIDEO-RANGE=SDR,CODECS="${codecStrings.join(',')}",RESOLUTION=${resolution},FRAME-RATE=23.976`
 
   m3u8 += variation + '\n'
   m3u8 += `${playlistName}.m3u8`
@@ -37,14 +36,18 @@ function generatePlaylist(playlistPath, segmentName, encodingOptions) {
   m3u8 += `#EXT-X-TARGETDURATION:${encodingOptions.segmentLength}\n`
   m3u8 += '#EXT-X-MEDIA-SEQUENCE:0\n'
 
-  var lastSegmentIndex = encodingOptions.numberOfSegments - 1
-  var finalSegmentLen = encodingOptions.duration - (lastSegmentIndex * encodingOptions.segmentLength)
+  // For NTSC frame rates (23.97 and 29.97) the playlist will add 0.003 to segment lengths for 3 second segments.
+  // This resolves an issue when using integer segments for non-integer frame rates.
+  var segmentLengthStr = encodingOptions.actualSegmentLengthString
+  var actualSegmentLength = encodingOptions.actualSegmentLength
+  var numberOfFullSegments = encodingOptions.numberOfSegments - 1
 
-  for (let i = 0; i < lastSegmentIndex; i++) {
-    m3u8 += `#EXTINF:${encodingOptions.segmentLength}, nodesc\n${segmentName}${i}.ts\n`
+  var finalSegmentLen = encodingOptions.duration - (numberOfFullSegments * actualSegmentLength)
+  for (let i = 0; i < numberOfFullSegments; i++) {
+    m3u8 += `#EXTINF:${segmentLengthStr}\n${segmentName}${i}.ts\n`
   }
 
-  m3u8 += `#EXTINF:${finalSegmentLen}, nodesc\n${segmentName}${lastSegmentIndex}.ts\n`
+  m3u8 += `#EXTINF:${finalSegmentLen}\n${segmentName}${numberOfFullSegments}.ts\n`
   m3u8 += '#EXT-X-ENDLIST'
 
   return fs.writeFile(playlistPath, m3u8).then(() => {
