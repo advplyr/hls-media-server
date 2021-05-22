@@ -110,7 +110,9 @@ class EncodingOptions {
       `-bufsize ${this.videoBitrate * 2}`,
       '-profile:v:0 high',
       '-level 41',
+      // '-c:v copy',
       '-g ' + gopSize,
+      scaler,
 
       // The Jellyfin method of getting static segment lengths for x264 encodes. This is a) not codec neutral and b) every 10 - 15th segment was off.
       /*
@@ -118,7 +120,7 @@ class EncodingOptions {
       `-x264opts subme=0:me_range=4:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none`,
       */
 
-      scaler,
+
       '-start_at_zero',
       '-vsync -1'
     ]
@@ -129,7 +131,8 @@ class EncodingOptions {
 
       // Audio stream to start at the same position as video stream, padding with silence if needed.
       // Taken From: https://videoblerg.wordpress.com/2017/11/10/ffmpeg-and-how-to-use-it-wrong/
-      options.push('-af aresample=async=1:min_hard_comp=0.100000:first_pts=0')
+      // REMOVED: Audio sync breaks seeking, segment length still static using gopSize
+      // options.push('-af aresample=async=1:min_hard_comp=0.100000:first_pts=0')
     }
     return options
   }

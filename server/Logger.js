@@ -78,6 +78,7 @@ class Logger {
 
   clearProgress = () => {
     this.isShowingProgressBar = false
+    terminalOverwrite.done()
     console.log('>>>')
   }
 

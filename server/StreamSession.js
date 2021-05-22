@@ -27,8 +27,11 @@ class StreamSession extends EventsEmitter {
     this.currentSegment = 0
     this.encodeStart = 0
     this.encodeComplete = false
+    this.waitingForSegment = null
     this.segmentsFetched = new Set()
     this.segmentsCreated = new Set()
+
+
 
     this.watcher = null
     this.initWatcher()
@@ -36,7 +39,7 @@ class StreamSession extends EventsEmitter {
     process.on('SIGINT', async () => {
       Logger.log('[PROCESS] Signal interruption')
       await this.cleanupMess('SIGINT')
-      Logger.log('[PROCESS] Exited gracefully, my liege')
+      Logger.log('[PROCESS] Exited gracefully')
       process.exit(0)
     })
   }
@@ -106,7 +109,8 @@ class StreamSession extends EventsEmitter {
   }
 
   async waitForSegment(segmentNumber, filePath, attempts = 0) {
-    if (attempts >= 10) return false
+    if (attempts === 0) this.waitingForSegment = segmentNumber
+    if (attempts >= 10 || this.waitingForSegment !== segmentNumber) return false
 
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
@@ -175,9 +179,10 @@ class StreamSession extends EventsEmitter {
       this.updateProgressBar()
     })
 
-    this.ffmpeg.on('stderr', (stdErrline) =>
+    this.ffmpeg.on('stderr', (stdErrline) => {
+      Logger.clearProgress()
       Logger.error(stdErrline)
-    )
+    })
 
     this.ffmpeg.on('error', (err, stdout, stderr) => {
       if (err.message && err.message.includes('SIGKILL')) {
@@ -185,6 +190,7 @@ class StreamSession extends EventsEmitter {
         Logger.info('[FFMPEG] Transcode Killed')
       } else {
         Logger.error('Ffmpeg Err', err.message)
+        Logger.clearProgress()
         this.cleanupMess('FfmpegErr')
       }
     })
@@ -237,6 +243,7 @@ class StreamSession extends EventsEmitter {
     }
 
     this.ffmpeg.kill('SIGKILL')
+    this.waitingForSegment = null
 
     var startTime = segmentNumber * this.encodingOptions.actualSegmentLength
 
@@ -246,6 +253,7 @@ class StreamSession extends EventsEmitter {
     this.encodingOptions.segmentStart = segmentNumber
     this.currentSegment = segmentNumber
 
+    // Todo: This should wait for previous ffmpeg job to finish
     await new Promise((resolve) => setTimeout(resolve, 100))
 
     this.run()

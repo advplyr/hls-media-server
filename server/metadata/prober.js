@@ -48,7 +48,7 @@ function tryGrabSampleRate(stream) {
 function tryGrabChannelLayout(stream) {
   var layout = stream.channel_layout
   if (!layout) return null
-  return layout.split('(').shift()
+  return String(layout).split('(').shift()
 }
 
 function tryGrabTag(stream, tag) {
