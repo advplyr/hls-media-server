@@ -33,6 +33,10 @@ class FileInfo {
   get videoStream() {
     return this.metadata.video_stream
   }
+  get videoStreamResolution() {
+    if (!this.metadata.video_stream) return null
+    return this.metadata.video_stream.resolution
+  }
 
   get videoStreamIndex() {
     return this.videoStream ? this.videoStream.index : null

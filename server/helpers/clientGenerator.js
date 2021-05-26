@@ -1,4 +1,13 @@
 module.exports.session = (session) => {
+  var qualityOptions = session.encodingOptions.qualityOptions
+  var qualityBtns = ''
+  var qualityBtnScript = ''
+  var _index = qualityOptions.length - 1
+  qualityOptions.forEach((quality) => {
+    qualityBtns += `<button id="quality-${quality.name}">${quality.name} - ${_index}</button>`
+    qualityBtnScript += `var btn${_index} = document.getElementById("quality-${quality.name}");btn${_index}.addEventListener('click', () => hls.currentLevel = ${_index});`
+    _index--
+  })
   return `
     <html>
       <head>
@@ -13,20 +22,21 @@ module.exports.session = (session) => {
         </p>
 
         <div style="display:flex;align-items:center;justify-content:center;">
-          <video id="video" controls />
+          <video id="video" controls style="max-width:90%" />
         </div>
 
         <p style="margin-top:10px;">
         File: ${session.fileInfo.filepath}<br />
         Stream: ${session.url}
         </p>
+        ${qualityBtns}
 
         <script>
           if (Hls.isSupported()) {
             console.log('HLS is supported!');
 
             var video = document.getElementById('video');
-            var hls = new Hls();
+            var hls = new Hls({ startLevel:2, debug: console });
             // bind them together
             hls.attachMedia(video);
             hls.on(Hls.Events.MEDIA_ATTACHED, function () {
@@ -34,8 +44,11 @@ module.exports.session = (session) => {
               hls.loadSource('${session.url}');
               hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
                 console.log(
-                  'manifest loaded, found ' + data.levels.length + ' quality level'
+                  'manifest loaded, found ' + data.levels.length + ' quality level', data.levels
                 );
+                console.log('AutoLevelEnabled:', hls.autoLevelEnabled, 'First Level:', hls.firstLevel, hls.startLevel, hls.currentLevel)
+                console.log('Bandwidth estimate', hls.bandwidthEstimate)
+                // hls.currentLevel = 2
                 video.play()
               });
 
@@ -59,6 +72,8 @@ module.exports.session = (session) => {
                 }
               });
             });
+
+           ${qualityBtnScript}
           }
         </script>
       </body>

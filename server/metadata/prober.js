@@ -1,7 +1,7 @@
 var Ffmpeg = require('fluent-ffmpeg')
 var metadataGrabbers = require('./metadataGrabbers')
 
-function tryGrabBitRate(stream) {
+function tryGrabBitRate(stream, all_streams, total_bit_rate) {
   if (!isNaN(stream.bit_rate) && stream.bit_rate) {
     return Number(stream.bit_rate)
   }
@@ -23,7 +23,20 @@ function tryGrabBitRate(stream) {
       return bps
     }
   }
-  return null
+
+  if (total_bit_rate && stream.codec_type === 'video') {
+    var estimated_bit_rate = total_bit_rate
+    all_streams.forEach((stream) => {
+      if (stream.bit_rate && !isNaN(stream.bit_rate)) {
+        estimated_bit_rate -= Number(stream.bit_rate)
+      }
+    })
+    return estimated_bit_rate
+  } else if (stream.codec_type === 'audio') {
+    return 112000
+  } else {
+    return 0
+  }
 }
 
 function tryGrabFrameRate(stream) {
@@ -56,7 +69,7 @@ function tryGrabTag(stream, tag) {
   return stream.tags[tag] || stream.tags[tag.toUpperCase()] || null
 }
 
-function parseMediaStreamInfo(stream) {
+function parseMediaStreamInfo(stream, all_streams, total_bit_rate) {
   var info = {
     index: stream.index,
     type: stream.codec_type,
@@ -64,7 +77,7 @@ function parseMediaStreamInfo(stream) {
     codec_long: stream.codec_long_name || null,
     codec_time_base: stream.codec_time_base || null,
     time_base: stream.time_base || null,
-    bit_rate: tryGrabBitRate(stream),
+    bit_rate: tryGrabBitRate(stream, all_streams, total_bit_rate),
     language: tryGrabTag(stream, 'language'),
     title: tryGrabTag(stream, 'title')
   }
@@ -109,13 +122,13 @@ function parseProbeData(data) {
       duration: !isNaN(duration) ? Number(duration) : null,
       size: sizeBytes,
       sizeMb,
-      bit_rate,
+      bit_rate: !isNaN(bit_rate) ? Number(bit_rate) : null,
       file_tag_encoder: tryGrabTag(format, 'encoder'),
       file_tag_title: tryGrabTag(format, 'title'),
       file_tag_creation_time: tryGrabTag(format, 'creation_time')
     }
 
-    const cleaned_streams = streams.map(s => parseMediaStreamInfo(s))
+    const cleaned_streams = streams.map(s => parseMediaStreamInfo(s, streams, cleanedData.bit_rate))
     cleanedData.video_stream = cleaned_streams.find(s => s.type === 'video')
     cleanedData.audio_streams = cleaned_streams.filter(s => s.type === 'audio')
     cleanedData.subtitle_streams = cleaned_streams.filter(s => s.type === 'subtitle')

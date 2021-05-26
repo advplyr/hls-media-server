@@ -24,6 +24,7 @@
     "express": "^4.17.1",
     "fluent-ffmpeg": "^2.1.2",
     "fs-extra": "^10.0.0",
+    "hls-playlist-generator": "^1.0.11",
     "terminal-overwrite": "^2.0.1"
   }
 }

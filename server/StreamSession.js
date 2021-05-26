@@ -15,23 +15,21 @@ class StreamSession extends EventsEmitter {
 
     this.ffmpeg = null
     this.ffmpegLogLevel = '-loglevel warning'
-    this.playlistName = 'index'
     this.masterPlaylistName = 'master'
-    this.segmentName = 'index'
     this.encodingOptions = encodingOptions
 
     this.streamPath = Path.resolve(outputPath, name)
     this.masterPlaylistPath = Path.resolve(this.streamPath, this.masterPlaylistName + '.m3u8')
-    this.playlistPath = Path.resolve(this.streamPath, this.playlistName + '.m3u8')
 
     this.currentSegment = 0
+    this.currentJobQuality = ''
     this.encodeStart = 0
     this.encodeComplete = false
     this.waitingForSegment = null
-    this.segmentsFetched = new Set()
-    this.segmentsCreated = new Set()
-
-
+    // this.segmentsFetched = new Set()
+    // this.segmentsCreated = new Set()
+    this.segmentsCreated = {}
+    this.segmentsFetched = {}
 
     this.watcher = null
     this.initWatcher()
@@ -52,25 +50,48 @@ class StreamSession extends EventsEmitter {
     return this.fileInfo ? this.fileInfo.durationPretty : 'Unknown'
   }
 
+  get currentPlaylistPath() {
+    var qualityName = this.encodingOptions.selectedQualityName
+    return Path.resolve(this.streamPath, qualityName + '.m3u8')
+  }
+
   updateProgressBar() {
-    var createdSegments = Array.from(this.segmentsCreated.values())
-    var fetchedSegments = Array.from(this.segmentsFetched.values())
+    var currentSegmentsCreated = this.segmentsCreated[this.currentJobQuality] || new Set()
+    var currentSegmentsFetched = this.segmentsFetched[this.currentJobQuality] || new Set()
+    var createdSegments = Array.from(currentSegmentsCreated.values())
+    var fetchedSegments = Array.from(currentSegmentsFetched.values())
     progressbar.build(createdSegments, fetchedSegments, this.encodingOptions.numberOfSegments, this.currentSegment)
   }
 
-  getSegmentNumberFromPath(path) {
-    var extname = Path.extname(path)
+  parseSegmentFilename(filepath) {
+    var extname = Path.extname(filepath)
     if (extname !== '.ts') return false
-    var basename = Path.basename(path, extname).replace(this.segmentName, '')
-    if (isNaN(basename)) return false
-    return Number(basename)
+    var basename = Path.basename(filepath, extname)
+    var portions = basename.split('-')
+    var variationName = portions[0]
+    var segmentNumber = Number(portions[1])
+    return {
+      variation: variationName,
+      number: segmentNumber
+    }
   }
 
-  setSegmentFetched(segment) {
-    this.segmentsFetched.add(segment)
+  setSegmentFetched(number, variation) {
+    if (!this.segmentsFetched[variation]) this.segmentsFetched[variation] = new Set()
+    this.segmentsFetched[variation].add(number)
     if (this.encodeComplete) {
       this.updateProgressBar()
     }
+  }
+
+  setSegmentCreated(number, variation) {
+    if (!this.segmentsCreated[variation]) this.segmentsCreated[variation] = new Set()
+    this.segmentsCreated[variation].add(number)
+  }
+
+  getIsSegmentCreated(number, variation) {
+    if (!this.segmentsCreated[variation]) return false
+    return this.segmentsCreated[variation].has(number)
   }
 
   initWatcher() {
@@ -98,13 +119,14 @@ class StreamSession extends EventsEmitter {
       Logger.verbose('Playlist created')
       return
     }
-    var segment = this.getSegmentNumberFromPath(path)
-    if (segment === false) {
+    var segmentDetails = this.parseSegmentFilename(path)
+    if (segmentDetails === false) {
       Logger.log('Invalid segment written', path)
       return
     }
+    var { number, variation } = segmentDetails
 
-    this.segmentsCreated.add(segment)
+    this.setSegmentCreated(number, variation)
     this.updateProgressBar()
   }
 
@@ -147,12 +169,13 @@ class StreamSession extends EventsEmitter {
 
   async generatePlaylist() {
     await fs.ensureDir(this.streamPath)
-    return playlistGenerator(this.masterPlaylistPath, this.playlistPath, this.playlistName, this.segmentName, this.encodingOptions)
+    return playlistGenerator(this.fileInfo.filepath, this.masterPlaylistPath, this.streamPath, this.encodingOptions)
   }
 
   async run() {
     this.encodeStart = Date.now()
     this.encodeComplete = false
+    this.currentJobQuality = this.encodingOptions.selectedQualityName
 
     if (Logger.isShowingProgressBar) {
       Logger.clearProgress()
@@ -163,16 +186,16 @@ class StreamSession extends EventsEmitter {
     this.ffmpeg = Ffmpeg()
     this.ffmpeg.addInput(this.fileInfo.filepath)
     if (this.encodingOptions.segmentStart > 0) {
-      var startTime = this.encodingOptions.segmentStart * this.encodingOptions.actualSegmentLength
-      // var startTimestamp = this.getTimestamp(startTime)
-      this.ffmpeg.inputOption(`-ss ${startTime}`)
+      this.ffmpeg.inputOption(`-ss ${this.encodingOptions.startTime}`)
       this.ffmpeg.inputOption('-noaccurate_seek')
     }
 
+    var segmentFilename = Path.join(this.streamPath, `${this.encodingOptions.selectedQualityName}-%d.ts`)
     this.ffmpeg.addOption(this.ffmpegLogLevel)
       .addOption(this.encodingOptions.transcodeOptions)
       .addOption(this.encodingOptions.hlsOptions)
-      .output(this.playlistPath)
+      .addOption(`-hls_segment_filename ${segmentFilename}`)
+      .output(this.currentPlaylistPath)
 
     this.ffmpeg.on('start', (command) => {
       Logger.log('[INFO] FFMPEG transcoding started with command: ' + command)
@@ -189,8 +212,8 @@ class StreamSession extends EventsEmitter {
         // This is an intentional SIGKILL
         Logger.info('[FFMPEG] Transcode Killed')
       } else {
-        Logger.error('Ffmpeg Err', err.message)
         Logger.clearProgress()
+        Logger.error('Ffmpeg Err', err.message)
         this.cleanupMess('FfmpegErr')
       }
     })
@@ -235,17 +258,35 @@ class StreamSession extends EventsEmitter {
     this.ffmpeg.kill('SIGKILL')
   }
 
-  async restart(segmentNumber) {
+  async restart(segmentNumber, qualityVariation = null) {
     var timeSinceLastRestart = Date.now() - this.encodeStart
     if (timeSinceLastRestart < 500) {
       Logger.error('Not restarting encode this quickly..')
       return false
     }
 
+    if (qualityVariation !== null) {
+      this.encodingOptions.setSelectedQuality(qualityVariation)
+
+    }
+
     this.ffmpeg.kill('SIGKILL')
     this.waitingForSegment = null
 
-    var startTime = segmentNumber * this.encodingOptions.actualSegmentLength
+    var startTime = this.encodingOptions.getSegmentStartTime(segmentNumber)
+    // console.log('Get segment start time', startTime, this.encodingOptions.segmentTimestamps)
+    // var timestamps = this.encodingOptions.segmentTimestamps
+    // if (!timestamps.length) {
+    //   console.error('No timestamps...')
+    // } else {
+    //   var _time = 0
+    //   for (let i = 0; i < segmentNumber; i++) {
+    //     var segmentLen = timestamps[i]
+    //     console.log('Seg len', segmentLen, 'for', i)
+    //     _time += segmentLen
+    //   }
+    //   console.log('resulting time', _time)
+    // }
 
     Logger.clearProgress()
     Logger.log('Restart encode @', startTime + 's', 'Segment:', segmentNumber)

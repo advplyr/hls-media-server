@@ -119,10 +119,27 @@ class MediaServer {
     }
 
     var segmentNumber = 0
+    var segmentVariation = 0
 
     if (isSegment) {
-      var basename = Path.basename(file, fileExtname)
-      segmentNumber = Number(basename.replace('index', ''))
+      var { number, variation } = hlsSession.parseSegmentFilename(file)
+      segmentNumber = number
+      segmentVariation = variation
+
+      // Quality Changed
+      if (segmentVariation !== hlsSession.currentJobQuality) {
+        Logger.clearProgress()
+        console.log('Quality option is different', hlsSession.currentJobQuality, segmentVariation)
+        var isRestarted = await hlsSession.restart(segmentNumber, segmentVariation)
+        if (!isRestarted) {
+          return res.sendStatus(500)
+        }
+        var segmentLoaded = await hlsSession.waitForSegment(segmentNumber, filePath)
+        if (!segmentLoaded) {
+          Logger.error(`Segment ${segmentNumber} still not loaded`)
+          return res.sendStatus(404)
+        }
+      }
 
       var distanceFromCurrentSegment = segmentNumber - hlsSession.currentSegment
       Logger.log('[REQUEST] Fetching segment', segmentNumber)
@@ -133,7 +150,7 @@ class MediaServer {
       Logger.log('[REQUEST] Fetching playlist', filePath)
     }
 
-    var fileExists = hlsSession.segmentsFetched.has(segmentNumber) || await fs.pathExists(filePath)
+    var fileExists = hlsSession.getIsSegmentCreated(segmentNumber, segmentVariation) || await fs.pathExists(filePath)
     if (!fileExists) {
       if (!isSegment) {
         Logger.error('[REQUEST] Playlist does not exist...', filePath)
@@ -186,7 +203,7 @@ class MediaServer {
     var streamSession = new StreamSession(name, fileInfo, encodingOptions)
     this.sessions[name] = streamSession
 
-    await streamSession.generatePlaylist()
+    encodingOptions.numberOfSegments = await streamSession.generatePlaylist()
     streamSession.run()
 
     streamSession.on('close', () => {
