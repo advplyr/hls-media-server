@@ -2,10 +2,10 @@ var express = require('express')
 var Path = require('path')
 var fs = require('fs-extra')
 var Logger = require('./Logger')
-var clientGenerator = require('./helpers/clientGenerator')
 var StreamSession = require('./StreamSession')
 var FileInfo = require('./FileInfo')
 var EncodingOptions = require('./EncodingOptions')
+var Sqrl = require('squirrelly')
 
 class MediaServer {
   constructor(port = process.env.PORT, mediaPath = process.env.MEDIA_PATH) {
@@ -13,6 +13,7 @@ class MediaServer {
     this.MEDIA_PATH = mediaPath
 
     this.sessions = {}
+    this.clients = {}
 
     this.start()
   }
@@ -31,6 +32,10 @@ class MediaServer {
   start() {
     var app = express()
     app.use(this.setHeaders)
+    app.use(express.static('public'))
+    app.set('views', './views')
+    app.engine('html', Sqrl.renderFile)
+    app.set('view engine', 'html')
 
     // Opens session and returns path to playlist file
     app.get('/open/:filename', (req, res) => this.handleStreamRequest(req, res, false))
@@ -47,6 +52,9 @@ class MediaServer {
     // Used by the client players to fetch .m3u8 and .ts file segments
     app.get('/:session/:file', this.handleFileRequest.bind(this))
 
+    // Client server event to track when client disconnects
+    app.get('/events', this.handleClientEvent.bind(this))
+
     // List of files in media directory
     app.get('/', this.handleClientIndex.bind(this))
 
@@ -56,13 +64,47 @@ class MediaServer {
   async handleClientIndex(req, res) {
     var mediaPath = Path.resolve(this.MEDIA_PATH)
     await fs.ensureDir(mediaPath)
+    var files = await fs.readdir(mediaPath)
+    res.render('index', {
+      title: 'Files',
+      mediaPath: mediaPath,
+      video_files: files
+    })
+  }
 
-    try {
-      var files = await fs.readdir(mediaPath)
-      res.send(clientGenerator.media(files, mediaPath))
-    } catch (err) {
-      res.status(500).send(err)
+  async handleClientEvent(req, res) {
+    const headers = {
+      'Content-Type': 'text/event-stream',
+      'Connection': 'keep-alive',
+      'Cache-Control': 'no-cache'
     }
+    res.writeHead(200, headers)
+
+    const requestIp = (typeof req.headers['x-forwarded-for'] === 'string' && req.headers['x-forwarded-for'].split(',').shift()) || req.connection.remoteAddress
+    if (!requestIp) {
+      console.error('No IP', requestIp)
+      return
+    }
+
+    if (!this.clients[requestIp]) {
+      this.clients[requestIp] = {
+        id: requestIp,
+        response: res
+      }
+    } else {
+      this.clients[requestIp].response = res
+    }
+
+    req.on('close', () => {
+      console.log(`${requestIp} Connection closed`)
+      if (this.clients[requestIp]) {
+        var sessionName = this.clients[requestIp].session
+        if (sessionName && this.sessions[sessionName]) {
+          this.sessions[sessionName].close()
+        }
+      }
+      delete this.clients[requestIp]
+    })
   }
 
   async handleProbeRequest(req, res) {
@@ -94,7 +136,8 @@ class MediaServer {
     if (this.sessions[sessionName]) {
       return res.status(500).send('Oops, a session is already running with this name')
     }
-    this.openStream(res, sessionName, filename, sendToPlayer)
+    const requestIp = (typeof req.headers['x-forwarded-for'] === 'string' && req.headers['x-forwarded-for'].split(',').shift()) || req.connection.remoteAddress
+    this.openStream(requestIp, res, sessionName, filename, sendToPlayer)
   }
 
   async handleFileRequest(req, res) {
@@ -166,11 +209,8 @@ class MediaServer {
         }
       }
 
-      var segmentLoaded = await hlsSession.waitForSegment(segmentNumber, filePath)
-      if (!segmentLoaded) {
-        Logger.error(`Segment ${segmentNumber} still not loaded`)
-        return res.sendStatus(404)
-      }
+      Logger.error(`Segment ${segmentNumber} still not loaded`)
+      return res.sendStatus(404)
     }
 
     if (isSegment) {
@@ -184,7 +224,7 @@ class MediaServer {
     })
   }
 
-  async openStream(res, name, filename, sendToPlayer = false) {
+  async openStream(requestIp, res, name, filename, sendToPlayer = false) {
     var filepath = Path.resolve(this.MEDIA_PATH, filename)
     var exists = await fs.pathExists(filepath)
     if (!exists) {
@@ -199,6 +239,12 @@ class MediaServer {
       return res.sendStatus(500)
     }
 
+    // Set this client with session
+    this.clients[requestIp] = {
+      id: requestIp,
+      session: name
+    }
+
     var encodingOptions = new EncodingOptions(fileInfo)
     var streamSession = new StreamSession(name, fileInfo, encodingOptions)
     this.sessions[name] = streamSession
@@ -207,11 +253,19 @@ class MediaServer {
     streamSession.run()
 
     streamSession.on('close', () => {
+      // Remove clients watching this session
+      var sessionClients = Object.values(this.clients).filter(client => client.session === name).map(c => c.id)
+      sessionClients.forEach((clientId) => {
+        delete this.clients[clientId]
+      })
       delete this.sessions[name]
     })
 
     if (sendToPlayer) {
-      res.send(clientGenerator.session(streamSession))
+      res.render('player', {
+        title: 'Player',
+        session: streamSession
+      })
     } else {
       res.send(`Stream open: ${streamSession.url}`)
     }

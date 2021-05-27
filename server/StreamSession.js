@@ -17,6 +17,7 @@ class StreamSession extends EventsEmitter {
     this.ffmpegLogLevel = '-loglevel warning'
     this.masterPlaylistName = 'master'
     this.encodingOptions = encodingOptions
+    this.hasSubtitles = true
 
     this.streamPath = Path.resolve(outputPath, name)
     this.masterPlaylistPath = Path.resolve(this.streamPath, this.masterPlaylistName + '.m3u8')
@@ -26,8 +27,7 @@ class StreamSession extends EventsEmitter {
     this.encodeStart = 0
     this.encodeComplete = false
     this.waitingForSegment = null
-    // this.segmentsFetched = new Set()
-    // this.segmentsCreated = new Set()
+
     this.segmentsCreated = {}
     this.segmentsFetched = {}
 
@@ -238,6 +238,10 @@ class StreamSession extends EventsEmitter {
     })
   }
 
+  close() {
+    this.cleanupMess('close')
+  }
+
   cleanupMess(caller = 'unknown') {
     console.log('Cleaning up mess', caller)
     this.stop()
@@ -274,19 +278,6 @@ class StreamSession extends EventsEmitter {
     this.waitingForSegment = null
 
     var startTime = this.encodingOptions.getSegmentStartTime(segmentNumber)
-    // console.log('Get segment start time', startTime, this.encodingOptions.segmentTimestamps)
-    // var timestamps = this.encodingOptions.segmentTimestamps
-    // if (!timestamps.length) {
-    //   console.error('No timestamps...')
-    // } else {
-    //   var _time = 0
-    //   for (let i = 0; i < segmentNumber; i++) {
-    //     var segmentLen = timestamps[i]
-    //     console.log('Seg len', segmentLen, 'for', i)
-    //     _time += segmentLen
-    //   }
-    //   console.log('resulting time', _time)
-    // }
 
     Logger.clearProgress()
     Logger.log('Restart encode @', startTime + 's', 'Segment:', segmentNumber)

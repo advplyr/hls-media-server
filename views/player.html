@@ -1,0 +1,463 @@
+<html>
+
+<head>
+  <title>{{it.title}} :: HLS-Media-Server</title>
+  <script src="//cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="https://src.litix.io/core/4/mux.js"></script>
+  <style>
+    body {
+      margin: 0px;
+      background-color: #000000;
+      color: #FFF;
+    }
+
+    #header {
+      position: absolute;
+      top: 20px;
+      left: 75px;
+      color: rgba(255, 255, 255, 0.75);
+      text-shadow: #000;
+      margin: 0px;
+    }
+
+    #backBtn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      border-radius: 50%;
+      padding: 5px;
+      height: 45px;
+      width: 45px;
+      color: rgba(255, 255, 255, 0.75);
+      cursor: pointer;
+      z-index: 1;
+    }
+
+    #backBtn svg {
+      height: 45px;
+      width: 45px;
+    }
+
+    #backBtn:hover {
+      color: #FFF;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .fileInfo {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: rgba(0, 0, 0, 0.25);
+      box-shadow: -3px 3px 10px #FFFFFF22;
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    .fileInfo p {
+      font-size: 0.8rem;
+    }
+
+    video {
+      height: 100%;
+      width: 100%;
+      object-fit: contain;
+      object-position: center;
+    }
+
+    #controlwrapper {
+      position: absolute;
+      bottom: 40px;
+      left: 0px;
+      right: 0px;
+    }
+
+    #controlcursor {
+      filter: drop-shadow(1px 2px 3px #00000066);
+    }
+
+    #playPauseBtn,
+    #volumeBtn {
+      height: 32px;
+      width: 32px;
+      border-radius: 50%;
+      padding: 5px;
+      cursor: pointer;
+    }
+
+    #playPauseBtn:hover,
+    #volumeBtn:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+
+<body>
+  <a id="backBtn" href="/">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
+    </svg>
+  </a>
+  <h1 id="header">{{it.session.name}}</h1>
+
+  <div class="fileInfo">
+    <p style="margin-bottom:10px;">
+      Video: <strong>{{it.session.fileInfo.videoDescription}}</strong><br />
+      <!-- <strong>{{it.session.encodingOptions.encodeVideoDisplay}}</strong><br /> -->
+      Audio: <strong>{{it.session.fileInfo.audioDescription}}</strong><br />
+      <!-- <strong>{{it.session.encodingOptions.encodeAudioDisplay}}</strong><br /> -->
+    </p>
+    <p id="bandwidthEstimate">BandwidthEstimate: N/A</p>
+    <!-- <p style="margin-top:10px;">
+      File: {{it.session.fileInfo.filepath}}<br />
+      Stream: {{it.session.url}}
+    </p> -->
+  </div>
+
+  <video id="video"></video>
+  <div id="controlwrapper"></div>
+
+  <script>
+    var volumeHighD = 'M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z'
+    var volumeLowD = 'M5,9V15H9L14,20V4L9,9M18.5,12C18.5,10.23 17.5,8.71 16,7.97V16C17.5,15.29 18.5,13.76 18.5,12Z'
+    var volumeOffD = 'M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z'
+
+    var pausePathD = 'M14,19H18V5H14M6,19H10V5H6V19Z'
+    var playPathD = 'M8,5.14V19.14L19,12.14L8,5.14Z'
+
+    if (Hls.isSupported()) {
+      var playPauseSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      playPauseSvg.setAttribute('viewBox', '0 0 24 24')
+      playPauseSvg.style.width = '32px'
+      playPauseSvg.style.height = '32px'
+      playPauseSvg.style.color = 'white'
+      var playPausePath = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      playPauseSvg.appendChild(playPausePath)
+      playPausePath.setAttribute('fill', 'currentColor')
+      playPausePath.setAttribute('d', playPathD)
+
+      var volumeSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      volumeSvg.style.width = '32px'
+      volumeSvg.style.height = '32px'
+      volumeSvg.style.color = 'white'
+      volumeSvg.setAttribute('viewBox', '0 0 24 24')
+      var volumeSvgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      volumeSvg.appendChild(volumeSvgPath)
+      volumeSvgPath.setAttribute('fill', 'currentColor')
+      volumeSvgPath.setAttribute('d', volumeHighD)
+
+      console.log('HLS is supported!');
+      var video = document.getElementById('video');
+      var controlWrapper = document.getElementById('controlwrapper')
+
+      var controlActions = document.createElement('div')
+      controlWrapper.appendChild(controlActions)
+
+      var playPauseBtn = document.createElement('div')
+      playPauseBtn.appendChild(playPauseSvg)
+      playPauseBtn.id = 'playPauseBtn'
+
+      controlActions.appendChild(playPauseBtn)
+
+      var currentTimestamp = document.createElement('span')
+      currentTimestamp.style.padding = '0px 10px'
+      currentTimestamp.style.fontSize = '0.85rem'
+      currentTimestamp.style.fontFamily = 'sans-serif'
+      currentTimestamp.style.pointerEvents = 'none'
+      currentTimestamp.innerHTML = '0:00 / 0:00'
+      controlActions.appendChild(currentTimestamp)
+
+      var spacer = document.createElement('div')
+      spacer.style.flexGrow = 1
+      controlActions.appendChild(spacer)
+
+      var qualityBtnWrapper = document.createElement('div')
+      qualityBtnWrapper.id = 'qualityBtnWrapper'
+      controlActions.appendChild(qualityBtnWrapper)
+
+      var volumeBtn = document.createElement('div')
+      volumeBtn.appendChild(volumeSvg)
+      volumeBtn.id = 'volumeBtn'
+      controlActions.appendChild(volumeBtn)
+
+      var controlbar = document.createElement('div')
+      controlWrapper.appendChild(controlbar)
+      var bufferbar = document.createElement('div')
+      controlbar.appendChild(bufferbar)
+      var playedbar = document.createElement('div')
+      controlbar.appendChild(playedbar)
+      var cursor = document.createElement('div')
+      controlbar.appendChild(cursor)
+
+      var videoDurationTimestamp = '0:00'
+
+      controlWrapper.style.width = window.innerWidth + 'px'
+      controlWrapper.style.width = '100%'
+      controlWrapper.style.display = 'flex'
+      controlWrapper.style.alignItems = 'center'
+      controlWrapper.style.justifyContent = 'center'
+      controlWrapper.style.flexDirection = 'column'
+      // controlWrapper.style.backgroundColor = '#00000044'
+
+      var controlbarWidth = window.innerWidth - 100
+      controlbar.style.width = controlbarWidth + 'px'
+      controlbar.style.height = '10px'
+      controlbar.style.backgroundColor = '#222222'
+      controlbar.style.position = 'relative'
+      controlbar.style.cursor = 'pointer'
+
+      controlActions.style.width = controlbarWidth + 16 + 'px'
+      controlActions.style.height = '37px'
+      controlActions.style.display = 'flex'
+      controlActions.style.alignItems = 'center'
+      controlActions.style.padding = '10px 0px'
+
+      cursor.style.position = 'absolute'
+      cursor.style.left = '-8px'
+      cursor.style.top = '-3px'
+      cursor.style.backgroundColor = 'white'
+      cursor.style.borderRadius = '50%'
+      cursor.style.height = '16px'
+      cursor.style.width = '16px'
+      cursor.id = 'controlcursor'
+
+      bufferbar.style.position = 'absolute'
+      bufferbar.style.left = '0px'
+      bufferbar.style.top = '0px'
+      bufferbar.style.height = '10px'
+      bufferbar.style.width = '0px'
+      bufferbar.style.backgroundColor = '#888888'
+      bufferbar.style.pointerEvents = 'none'
+
+      playedbar.style.position = 'absolute'
+      playedbar.style.left = '0px'
+      playedbar.style.top = '0px'
+      playedbar.style.height = '10px'
+      playedbar.style.width = '0px'
+      playedbar.style.backgroundColor = '#FFFFFF'
+      playedbar.style.pointerEvents = 'none'
+
+      controlbar.addEventListener('click', (evt) => {
+        var x = evt.x
+        var time = ((x - 50) / controlbarWidth) * video.duration
+        video.currentTime = time
+      })
+      playPauseBtn.addEventListener('click', playPause)
+      volumeBtn.addEventListener('click', () => {
+        video.muted = !video.muted
+        volumeSvgPath.setAttribute('d', video.muted ? volumeOffD : volumeHighD)
+      })
+
+      var hls = new Hls({ startLevel: 2, abrEwmaDefaultEstimate: 4000000, maxBufferLength: 1, maxLoadingDelay: 10, fragLoadingMaxRetry: 10 });
+
+      // bind them together
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+        hls.loadSource('{{it.session.url}}')
+        hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+          console.log('manifest loaded, found ' + data.levels.length + ' quality level', data.levels)
+          console.log('AutoLevelEnabled:', hls.autoLevelEnabled, 'First Level:', hls.firstLevel, hls.startLevel, hls.currentLevel)
+          console.log('Bandwidth estimate', hls.bandwidthEstimate)
+
+          var beElem = document.getElementById('bandwidthEstimate')
+          if (beElem) {
+            beElem.innerHTML = `Bandwidth Estimate: ${hls.bandwidthEstimate}`
+          }
+
+          var index = 0
+          var btnWrapper = document.getElementById('qualityBtnWrapper')
+          hls.levels.forEach((level) => {
+            var btn = document.createElement('button')
+            btn.innerHTML = `${index}. ${level.height} (${formatBytes(level.maxBitrate)})`
+            btn.setAttribute('data-quality', index)
+            btn.id = `level-${index}`
+            var _index = index
+            btn.addEventListener('click', () => {
+              setQual(_index)
+            })
+            btnWrapper.appendChild(btn)
+            index++
+          })
+          video.play()
+        });
+
+        hls.on(Hls.Events.ERROR, function (event, data) {
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                // try to recover network error
+                console.log('fatal network error encountered, try to recover');
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.log('fatal media error encountered, try to recover');
+                hls.recoverMediaError();
+                break;
+              default:
+                // cannot recover
+                hls.destroy();
+                break;
+            }
+          } else {
+            // console.log('HLS ERROR', data)
+          }
+        });
+
+        hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
+          var btns = document.querySelectorAll('[data-quality]')
+          // console.log('LEVEL SWITCHED', data)
+          btns.forEach((btn) => {
+            btn.style.backgroundColor = btn.id === `level-${data.level}` ? '#22DD00' : '#DDDDDD'
+          })
+        })
+
+        hls.on(Hls.Events.LEVEL_SWITCHING, (event, data) => {
+          // console.log('LEVEL SWITCHING', hls.bandwidthEstimate, data)
+          var beElem = document.getElementById('bandwidthEstimate')
+          if (beElem) {
+            beElem.innerHTML = `Bandwidth Estimate: ${formatBytes(hls.bandwidthEstimate)} - ${formatBytes(hls.bandwidthEstimate * 0.7)}`
+          }
+        })
+      });
+
+      video.addEventListener('click', playPause)
+      video.addEventListener('loadstart', () => {
+        playPauseSvg.style.color = '#888888'
+        playPauseBtn.style.pointerEvents = 'none'
+      })
+      video.addEventListener('canplay', () => {
+        playPauseSvg.style.color = '#FFFFFF'
+        playPauseBtn.style.pointerEvents = 'auto'
+      })
+      video.addEventListener('loadedmetadata', () => {
+        videoDurationTimestamp = secondsToTimestamp(video.duration)
+        currentTimestamp.innerHTML = secondsToTimestamp(video.currentTime) + ' / ' + videoDurationTimestamp
+
+        // Example of adding subtitle track manually
+        // var track = document.createElement("track");
+        // track.kind = "captions";
+        // track.label = "English";
+        // track.srclang = "en";
+        // track.src = "/subtitles.vtt";
+        // track.mode = 'showing'
+        // track.default = true
+        // track.addEventListener('load', () => {
+        //   track.mode = 'showing'
+        //   video.textTracks[0].mode = 'showing'
+        // })
+        // video.appendChild(track)
+      })
+
+      video.addEventListener('timeupdate', () => {
+        var cursorpos = (video.currentTime / video.duration) * controlbarWidth
+        cursor.style.transform = `translateX(${cursorpos}px)`
+        playedbar.style.width = cursorpos + 'px'
+        currentTimestamp.innerHTML = secondsToTimestamp(video.currentTime) + ' / ' + videoDurationTimestamp
+      })
+
+      video.addEventListener('progress', () => {
+        var lastbuff = getLastBufferedTime()
+        var bufferlen = (lastbuff / video.duration) * controlbarWidth
+        bufferbar.style.width = bufferlen + 'px'
+      })
+
+      video.addEventListener('play', () => {
+        playPausePath.setAttribute('d', pausePathD)
+      })
+      video.addEventListener('pause', () => {
+        playPausePath.setAttribute('d', playPathD)
+      })
+
+      function setQual(index) {
+        hls.currentLevel = index
+      }
+
+      function playPause() {
+        if (video.readyState !== 4) return
+        if (video.paused) video.play()
+        else video.pause()
+      }
+
+      function isValidDuration(duration) {
+        if (duration && !isNaN(duration) && duration !== Number.POSITIVE_INFINITY && duration !== Number.NEGATIVE_INFINITY) {
+          return true;
+        }
+        return false;
+      }
+
+      function getBufferedRanges() {
+        const ranges = [];
+        const seekable = video.buffered || [];
+
+        let offset = 0;
+
+        for (let i = 0, length = seekable.length; i < length; i++) {
+          let start = seekable.start(i);
+          let end = seekable.end(i);
+          if (!isValidDuration(start)) {
+            start = 0;
+          }
+          if (!isValidDuration(end)) {
+            end = 0;
+            continue;
+          }
+
+          ranges.push({
+            start: start + offset,
+            end: end + offset
+          });
+        }
+
+        return ranges;
+      }
+
+      function getLastBufferedTime() {
+        var bufferedRanges = getBufferedRanges()
+        if (!bufferedRanges.length) return 0
+
+        var buff = bufferedRanges.find(buff => buff.start < video.currentTime && buff.end > video.currentTime)
+        if (buff) return buff.end
+
+        var last = bufferedRanges[bufferedRanges.length - 1]
+        return last.end
+      }
+
+      function secondsToTimestamp(timestamp) {
+        var hours = Math.floor(timestamp / 60 / 60)
+        var minutes = Math.floor(timestamp / 60) - (hours * 60)
+        var seconds = Math.floor(timestamp % 60)
+        if (!hours) return minutes.toString() + ':' + seconds.toString().padStart(2, '0')
+        return hours.toString() + ':' + minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0')
+      }
+
+      function formatBytes(bytes) {
+        if (isNaN(bytes) || bytes === null) return 'N/A'
+        if (bytes === 0) {
+          return '0 Bytes'
+        }
+        const k = 1024
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+        const i = Math.floor(Math.log(bytes) / Math.log(k))
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+      }
+    }
+
+    var serverEvents = new EventSource('/events')
+    serverEvents.addEventListener('open', (ev) => {
+      console.log('Server events open', ev)
+    })
+    serverEvents.addEventListener('error', (ev) => {
+      console.error('Server events error', ev)
+    })
+    serverEvents.addEventListener('message', function (event) {
+      try {
+        var eventJson = JSON.parse(event.data)
+        console.log('Event', eventJson)
+      } catch (err) {
+        console.error('Invalid', err)
+      }
+    })
+  </script>
+</body>
+
+</html>

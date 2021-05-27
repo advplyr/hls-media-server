@@ -25,6 +25,7 @@
     "fluent-ffmpeg": "^2.1.2",
     "fs-extra": "^10.0.0",
     "hls-playlist-generator": "^1.0.11",
+    "squirrelly": "^8.0.8",
     "terminal-overwrite": "^2.0.1"
   }
 }

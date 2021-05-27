@@ -1,10 +1,10 @@
 var { formatBytes } = require('./helpers/utils')
 
 const QualityOptions = [
-  { name: '1080p', resolution: 1080, videoBitrate: 7200000, audioBitrate: 224000 },
-  { name: '720p', resolution: 720, videoBitrate: 4000000, audioBitrate: 160000 },
+  { name: '360p', resolution: 360, videoBitrate: 1200000, audioBitrate: 112000 },
   { name: '480p', resolution: 480, videoBitrate: 2400000, audioBitrate: 128000 },
-  { name: '360p', resolution: 360, videoBitrate: 1200000, audioBitrate: 112000 }
+  { name: '720p', resolution: 720, videoBitrate: 4000000, audioBitrate: 160000 },
+  { name: '1080p', resolution: 1080, videoBitrate: 7200000, audioBitrate: 224000 }
 ]
 
 class EncodingOptions {
@@ -21,14 +21,18 @@ class EncodingOptions {
 
     // SET Quality Options
     this.qualityOptions = QualityOptions.filter(opt => (maxNetworkBitrate >= opt.videoBitrate && fileInfo.videoBitrate >= opt.videoBitrate))
+    this.selectedQualityIndex = this.qualityOptions.length - 1
 
     if (this.canDirectStreamVideo) {
       console.log('Insert direct stream quality')
-      var dsOption = { name: this.fileInfo.videoStreamResolution, resolution: this.fileInfo.videoHeight, videoBitrate: this.fileInfo.videoBitrate, audioBitrate: this.fileInfo.audioBitrate }
+      var dsOption = { name: this.fileInfo.videoStreamResolution + '_direct', resolution: this.fileInfo.videoHeight, videoBitrate: this.fileInfo.videoBitrate, audioBitrate: this.fileInfo.audioBitrate, isDirectStream: true }
       var indexToInsert = this.qualityOptions.findIndex(opt => opt.videoBitrate < dsOption.videoBitrate)
-      if (indexToInsert < 0) this.qualityOptions.push(dsOption)
-      else this.qualityOptions.splice(indexToInsert, 0, dsOption)
+      if (indexToInsert < 0) {
+        indexToInsert = this.qualityOptions.length
+        this.qualityOptions.push(dsOption)
+      } else this.qualityOptions.splice(indexToInsert, 0, dsOption)
       console.log('Inserted direct stream option', dsOption, 'into idnex', indexToInsert)
+      this.selectedQualityIndex = indexToInsert
     }
 
     if (!this.qualityOptions.length) {
@@ -36,7 +40,7 @@ class EncodingOptions {
       this.qualityOptions = [QualityOptions[QualityOptions.length - 1]]
     }
 
-    this.selectedQuality = this.qualityOptions[0]
+
   }
 
   get resolutionWidth() {
@@ -50,6 +54,9 @@ class EncodingOptions {
   }
   get audioBitrate() {
     return this.selectedQuality.audioBitrate
+  }
+  get selectedQuality() {
+    return this.qualityOptions[this.selectedQualityIndex]
   }
   get selectedQualityName() {
     if (!this.selectedQuality) {
@@ -215,12 +222,12 @@ class EncodingOptions {
   }
 
   setSelectedQuality(name) {
-    var _quality = this.qualityOptions.find(qopt => qopt.name === name)
-    if (!_quality) {
+    var qualityIndex = this.qualityOptions.findIndex(qopt => qopt.name === name)
+    if (qualityIndex < 0) {
       console.error('Quality not found', name)
       return false
     }
-    this.selectedQuality = _quality
+    this.selectedQualityIndex = qualityIndex
     return true
   }
 }

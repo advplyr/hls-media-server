@@ -2,6 +2,8 @@
 
 Node server to transcode video files and stream on the fly via HLS.
 
+This is a work in progress & playground.
+
 #### Note: requires **[ffmpeg](http://ffmpeg.org)**
 
 ### What is the problem?
