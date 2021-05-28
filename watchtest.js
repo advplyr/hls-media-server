@@ -1,4 +1,5 @@
 var chokidar = require('chokidar')
+var Path = require('path')
 
 function initWatcher() {
   var paths = ['/media/test']
@@ -14,6 +15,10 @@ function initWatcher() {
   this.watcher
     .on('add', (path) => {
       console.log('Added file', path)
+      var extname = Path.extname(path)
+      var basename = Path.basename(path, extname)
+      console.log('BNASE', basename, 'ext', extname)
+
     }).on('error', (error) => {
       console.error(`[WATCHER] error: ${error}`)
     }).on('ready', () => {
