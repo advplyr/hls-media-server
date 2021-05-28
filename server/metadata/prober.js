@@ -20,6 +20,7 @@ function tryGrabBitRate(stream, all_streams, total_bit_rate) {
   var tagDuration = stream.tags.DURATION || stream.tags['DURATION-eng'] || stream.tags['DURATION_eng']
   var tagBytes = stream.tags.NUMBER_OF_BYTES || stream.tags['NUMBER_OF_BYTES-eng'] || stream.tags['NUMBER_OF_BYTES_eng']
   if (tagDuration && tagBytes) {
+    console.log('Duration', Number(tagDuration), 'Bits', Number(tagBytes) * 8)
     var bps = Math.floor(Number(tagBytes) * 8 / Number(tagDuration))
     if (bps && !isNaN(bps)) {
       return bps
