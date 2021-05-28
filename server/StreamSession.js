@@ -19,6 +19,7 @@ class StreamSession extends EventsEmitter {
     this.encodingOptions = encodingOptions
     this.hasSubtitles = true
 
+    this.outputPath = outputPath
     this.streamPath = Path.resolve(outputPath, name)
     this.masterPlaylistPath = Path.resolve(this.streamPath, this.masterPlaylistName + '.m3u8')
 
@@ -95,8 +96,8 @@ class StreamSession extends EventsEmitter {
   }
 
   initWatcher() {
-    var paths = [this.streamPath]
-    this.watcher = chokidar.watch(paths, {
+    // var paths = [this.streamPath]
+    this.watcher = chokidar.watch(this.outputPath, {
       ignoreInitial: true,
       ignored: /(^|[\/\\])\../, // ignore dotfiles
       persistent: true,

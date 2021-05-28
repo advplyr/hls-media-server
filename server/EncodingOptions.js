@@ -37,10 +37,10 @@ class EncodingOptions {
 
     if (!this.qualityOptions.length) {
       console.error('No Quality Options', fileInfo.videoBitrate)
-      this.qualityOptions = [QualityOptions[QualityOptions.length - 1]]
+      this.qualityOptions = [QualityOptions[0]]
     }
 
-
+    console.log('Quality options', this.qualityOptions, this.selectedQuality)
   }
 
   get resolutionWidth() {
