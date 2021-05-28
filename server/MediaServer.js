@@ -4,7 +4,7 @@ var fs = require('fs-extra')
 var Sqrl = require('squirrelly')
 
 var Logger = require('./Logger')
-var { fetchMediaFiles } = require('./helpers/utils')
+var { fetchMediaFiles, slugify } = require('./helpers/utils')
 var StreamSession = require('./StreamSession')
 var FileInfo = require('./FileInfo')
 var EncodingOptions = require('./EncodingOptions')
@@ -40,17 +40,17 @@ class MediaServer {
     app.engine('html', Sqrl.renderFile)
     app.set('view engine', 'html')
 
-    // Opens session and returns path to playlist file
-    app.get('/open/:filename*', (req, res) => this.handleStreamRequest(req, res, false))
+    // Opens session and returns path to playlist file, requires query ?file=<file_in_media_path>
+    app.get('/open', (req, res) => this.handleStreamRequest(req, res, false))
 
-    // Opens session and shows hls.js player
-    app.get('/stream/:filename*', (req, res) => this.handleStreamRequest(req, res, true))
+    // Opens session and shows hls.js player, requires query ?file=<file_in_media_path>
+    app.get('/stream', (req, res) => this.handleStreamRequest(req, res, true))
+
+    // Returns parsed metadata of video from ffprobe, requires query ?file=<file_in_media_path>
+    app.get('/probe', this.handleProbeRequest.bind(this))
 
     // Shows hls.js player with session
     app.get('/watch/:session', this.handleWatchRequest.bind(this))
-
-    // Returns parsed metadata of video from ffprobe
-    app.get('/probe/:filename*', this.handleProbeRequest.bind(this))
 
     // Used by the client players to fetch .m3u8 and .ts file segments
     app.get('/:session/:file', this.handleFileRequest.bind(this))
@@ -112,7 +112,7 @@ class MediaServer {
   }
 
   async handleProbeRequest(req, res) {
-    var filename = req.params.filename
+    var filename = req.query.file
     var filepath = Path.resolve(this.MEDIA_PATH, filename)
     var exists = await fs.pathExists(filepath)
     if (!exists) {
@@ -135,8 +135,8 @@ class MediaServer {
   }
 
   handleStreamRequest(req, res, sendToPlayer) {
-    var filename = req.params.filename
-    var sessionName = req.query.name || Path.basename(filename)
+    var filename = req.query.file
+    var sessionName = req.query.name || slugify(filename)
     if (this.sessions[sessionName]) {
       return res.status(500).send('Oops, a session is already running with this name')
     }

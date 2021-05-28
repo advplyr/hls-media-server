@@ -30,7 +30,15 @@ module.exports.fetchMediaFiles = async (dir) => {
     return VIDEO_FORMATS.includes(Path.extname(filepath))
   }).map((filepath) => {
     var _filepath = filepath.replace(dir, '')
-    if (_filepath.startsWith('/')) return _filepath.substr(1)
+    if (_filepath.startsWith('\\')) return _filepath.substr(1)
     return _filepath
   })
+}
+
+module.exports.slugify = (text) => {
+  if (!text) return 'Error'
+  return text.toString().toLowerCase().trim()
+    .replace(/[^\w\s-]/g, '') // remove non-word [a-z0-9_], non-whitespace, non-hyphen characters
+    .replace(/[\s_-]+/g, '_') // swap any length of whitespace, underscore, hyphen characters with a single _
+    .replace(/^-+|-+$/g, ''); // remove leading, trailing -
 }

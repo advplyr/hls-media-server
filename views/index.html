@@ -15,7 +15,7 @@
     <h3>{{ it.mediaPath }}</h3>
 
     {{@foreach(it.video_files) => index, val}}
-    <a style="color:white;font-size:1.5rem;" href="/stream/{{val}}">{{val}}</a><br />
+    <a style="color:white;font-size:1.5rem;" href="/stream?file={{val}}">{{val}}</a><br />
     {{/foreach}}
     {{@if(it.video_files.length === 0)}}
     <h4>No Media Files</h4>
