@@ -1,12 +1,15 @@
 var express = require('express')
 var Path = require('path')
 var fs = require('fs-extra')
+var Sqrl = require('squirrelly')
+
 var Logger = require('./Logger')
+var { fetchMediaFiles } = require('./helpers/utils')
 var StreamSession = require('./StreamSession')
 var FileInfo = require('./FileInfo')
 var EncodingOptions = require('./EncodingOptions')
-var Sqrl = require('squirrelly')
-// cat
+
+
 class MediaServer {
   constructor(port = process.env.PORT, mediaPath = process.env.MEDIA_PATH) {
     this.PORT = port
@@ -64,7 +67,8 @@ class MediaServer {
   async handleClientIndex(req, res) {
     var mediaPath = Path.resolve(this.MEDIA_PATH)
     await fs.ensureDir(mediaPath)
-    var files = await fs.readdir(mediaPath)
+    // var files = await fs.readdir(mediaPath)
+    var files = await fetchMediaFiles(mediaPath)
     res.render('index', {
       title: 'Files',
       mediaPath: mediaPath,
