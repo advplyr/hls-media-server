@@ -13,6 +13,7 @@ function tryGrabBitRate(stream, all_streams, total_bit_rate) {
   var bps = stream.tags.BPS || stream.tags['BPS-eng'] || stream.tags['BPS_eng']
   if (bps && !isNaN(bps)) {
     if (!all_streams.find(s => s.codec_type === 'audio' && s.bit_rate && Number(s.bit_rate) > Number(bps))) {
+      console.log('BPS', bps)
       return Number(bps)
     }
   }
@@ -29,12 +30,14 @@ function tryGrabBitRate(stream, all_streams, total_bit_rate) {
 
   if (total_bit_rate && stream.codec_type === 'video') {
     var estimated_bit_rate = total_bit_rate
+    console.log('ESIMTATED', estimated_bit_rate)
     all_streams.forEach((stream) => {
       if (stream.bit_rate && !isNaN(stream.bit_rate)) {
         estimated_bit_rate -= Number(stream.bit_rate)
       }
     })
     if (!all_streams.find(s => s.codec_type === 'audio' && s.bit_rate && Number(s.bit_rate) > estimated_bit_rate)) {
+      console.log('return est')
       return estimated_bit_rate
     } else {
       return total_bit_rate
