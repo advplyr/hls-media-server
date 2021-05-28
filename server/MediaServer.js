@@ -41,16 +41,16 @@ class MediaServer {
     app.set('view engine', 'html')
 
     // Opens session and returns path to playlist file
-    app.get('/open/:filename', (req, res) => this.handleStreamRequest(req, res, false))
+    app.get('/open/:filename*', (req, res) => this.handleStreamRequest(req, res, false))
 
     // Opens session and shows hls.js player
-    app.get('/stream/:filename', (req, res) => this.handleStreamRequest(req, res, true))
+    app.get('/stream/:filename*', (req, res) => this.handleStreamRequest(req, res, true))
 
     // Shows hls.js player with session
     app.get('/watch/:session', this.handleWatchRequest.bind(this))
 
     // Returns parsed metadata of video from ffprobe
-    app.get('/probe/:filename', this.handleProbeRequest.bind(this))
+    app.get('/probe/:filename*', this.handleProbeRequest.bind(this))
 
     // Used by the client players to fetch .m3u8 and .ts file segments
     app.get('/:session/:file', this.handleFileRequest.bind(this))
