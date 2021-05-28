@@ -29,6 +29,8 @@ module.exports.fetchMediaFiles = async (dir) => {
   return files.filter(filepath => {
     return VIDEO_FORMATS.includes(Path.extname(filepath))
   }).map((filepath) => {
-    return filepath.replace(dir, '')
+    var _filepath = filepath.replace(dir, '')
+    if (_filepath.startsWith('/')) return _filepath.substr(1)
+    return _filepath
   })
 }

@@ -43,7 +43,7 @@ class StreamSession extends EventsEmitter {
   }
 
   get url() {
-    return `http://localhost:4000/${this.name}/${this.masterPlaylistName + '.m3u8'}`
+    return `/${this.name}/${this.masterPlaylistName + '.m3u8'}`
   }
 
   get fileDurationPretty() {
