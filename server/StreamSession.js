@@ -108,9 +108,9 @@ class StreamSession extends EventsEmitter {
       .on('add', (path) => {
         this.onNewFile(path)
       }).on('error', (error) => {
-        Logger.log(`[WATCHER] error: ${error}`)
+        Logger.error(`[WATCHER] error: ${error}`)
       }).on('ready', () => {
-        Logger.log(`[WATCHER] listening for segments at ${this.streamPath}`)
+        Logger.info(`[WATCHER] listening for segments at ${this.streamPath}`)
       })
   }
 
