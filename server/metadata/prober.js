@@ -12,7 +12,9 @@ function tryGrabBitRate(stream, all_streams, total_bit_rate) {
   // Attempt to get bitrate from bps tags
   var bps = stream.tags.BPS || stream.tags['BPS-eng'] || stream.tags['BPS_eng']
   if (bps && !isNaN(bps)) {
-    return Number(bps)
+    if (!all_streams.find(s => s.codec_type === 'audio' && s.bit_rate && Number(s.bit_rate) > Number(bps))) {
+      return Number(bps)
+    }
   }
 
   var tagDuration = stream.tags.DURATION || stream.tags['DURATION-eng'] || stream.tags['DURATION_eng']
