@@ -61,7 +61,7 @@ class StreamSession extends EventsEmitter {
     var currentSegmentsFetched = this.segmentsFetched[this.currentJobQuality] || new Set()
     var createdSegments = Array.from(currentSegmentsCreated.values())
     var fetchedSegments = Array.from(currentSegmentsFetched.values())
-    // progressbar.build(createdSegments, fetchedSegments, this.encodingOptions.numberOfSegments, this.currentSegment)
+    progressbar.build(createdSegments, fetchedSegments, this.encodingOptions.numberOfSegments, this.currentSegment)
   }
 
   parseSegmentFilename(filepath) {
@@ -109,10 +109,7 @@ class StreamSession extends EventsEmitter {
     })
     this.watcher
       .on('add', (path) => {
-        console.log('>>>>>>>>> FILE ADDED', path)
         this.onNewFile(path)
-      }).on('change', (change) => {
-        console.log('PATH CHANGE', change)
       }).on('error', (error) => {
         Logger.error(`[WATCHER] error: ${error}`)
       }).on('ready', () => {
