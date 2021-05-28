@@ -33,7 +33,11 @@ function tryGrabBitRate(stream, all_streams, total_bit_rate) {
         estimated_bit_rate -= Number(stream.bit_rate)
       }
     })
-    return estimated_bit_rate
+    if (!all_streams.find(s => s.codec_type === 'audio' && s.bit_rate && Number(s.bit_rate) > Number(bps))) {
+      return estimated_bit_rate
+    } else {
+      return total_bit_rate
+    }
   } else if (stream.codec_type === 'audio') {
     return 112000
   } else {
