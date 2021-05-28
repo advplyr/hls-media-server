@@ -136,7 +136,8 @@ class MediaServer {
 
   handleStreamRequest(req, res, sendToPlayer) {
     var filename = req.query.file
-    var sessionName = req.query.name || slugify(Path.basename(filename, Path.extname(filename)))
+    // var sessionName = req.query.name || slugify(Path.basename(filename, Path.extname(filename)))
+    var sessionName = 'cat'
     if (this.sessions[sessionName]) {
       return res.status(500).send('Oops, a session is already running with this name')
     }
