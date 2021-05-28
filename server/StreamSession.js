@@ -60,7 +60,7 @@ class StreamSession extends EventsEmitter {
     var currentSegmentsFetched = this.segmentsFetched[this.currentJobQuality] || new Set()
     var createdSegments = Array.from(currentSegmentsCreated.values())
     var fetchedSegments = Array.from(currentSegmentsFetched.values())
-    progressbar.build(createdSegments, fetchedSegments, this.encodingOptions.numberOfSegments, this.currentSegment)
+    // progressbar.build(createdSegments, fetchedSegments, this.encodingOptions.numberOfSegments, this.currentSegment)
   }
 
   parseSegmentFilename(filepath) {
@@ -95,7 +95,8 @@ class StreamSession extends EventsEmitter {
   }
 
   initWatcher() {
-    this.watcher = chokidar.watch(this.streamPath, {
+    var paths = [this.streamPath]
+    this.watcher = chokidar.watch(paths, {
       ignoreInitial: true,
       ignored: /(^|[\/\\])\../, // ignore dotfiles
       persistent: true,
@@ -103,11 +104,15 @@ class StreamSession extends EventsEmitter {
         stabilityThreshold: 500,
         pollInterval: 500
       },
-      disableGlobbing: true
+      disableGlobbing: true,
+      usePolling: true
     })
     this.watcher
       .on('add', (path) => {
+        console.log('>>>>>>>>> FILE ADDED', path)
         this.onNewFile(path)
+      }).on('change', (change) => {
+        console.log('PATH CHANGE', change)
       }).on('error', (error) => {
         Logger.error(`[WATCHER] error: ${error}`)
       }).on('ready', () => {
@@ -251,6 +256,7 @@ class StreamSession extends EventsEmitter {
 
   stop() {
     if (this.watcher) {
+      console.log('>>>>>>>>>> REMOVED WATCHER')
       this.watcher.removeAllListeners()
       this.watcher = null
     }
