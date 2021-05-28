@@ -124,7 +124,7 @@ class EncodingOptions {
   }
 
   get videoTranscodeOptions() {
-    if (this.canDirectStreamVideo) {
+    if (this.canDirectStreamVideo && this.selectedQuality.isDirectStream) {
       return ['-c:v copy']
     }
     var scaler = ''
@@ -178,7 +178,7 @@ class EncodingOptions {
       */
     ]
     if (this.fileInfo.audioStream) {
-      if (this.canDirectStreamAudio) {
+      if (this.canDirectStreamAudio && this.selectedQuality.isDirectStream) {
         options.push(`-c:a copy`)
       } else {
         options.push(`-codec:a:0 ${this.audioEncoder}`) // Todo: select correct audio index here

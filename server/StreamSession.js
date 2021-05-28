@@ -274,7 +274,6 @@ class StreamSession extends EventsEmitter {
 
     if (qualityVariation !== null) {
       this.encodingOptions.setSelectedQuality(qualityVariation)
-
     }
 
     this.ffmpeg.kill('SIGKILL')
