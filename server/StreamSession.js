@@ -106,6 +106,7 @@ class StreamSession extends EventsEmitter {
     })
     this.watcher
       .on('add', (path) => {
+        console.log('>>>>>>>> NEW FILE', path)
         this.onNewFile(path)
       }).on('error', (error) => {
         Logger.error(`[WATCHER] error: ${error}`)
