@@ -12,16 +12,12 @@ function tryGrabBitRate(stream, all_streams, total_bit_rate) {
   // Attempt to get bitrate from bps tags
   var bps = stream.tags.BPS || stream.tags['BPS-eng'] || stream.tags['BPS_eng']
   if (bps && !isNaN(bps)) {
-    if (!all_streams.find(s => s.codec_type === 'audio' && s.bit_rate && Number(s.bit_rate) > Number(bps))) {
-      console.log('BPS', bps)
-      return Number(bps)
-    }
+    return Number(bps)
   }
 
   var tagDuration = stream.tags.DURATION || stream.tags['DURATION-eng'] || stream.tags['DURATION_eng']
   var tagBytes = stream.tags.NUMBER_OF_BYTES || stream.tags['NUMBER_OF_BYTES-eng'] || stream.tags['NUMBER_OF_BYTES_eng']
-  if (tagDuration && tagBytes) {
-    console.log('Duration', Number(tagDuration), 'Bits', Number(tagBytes) * 8)
+  if (tagDuration && tagBytes && !isNaN(tagDuration) && !isNaN(tagBytes)) {
     var bps = Math.floor(Number(tagBytes) * 8 / Number(tagDuration))
     if (bps && !isNaN(bps)) {
       return bps
@@ -30,14 +26,12 @@ function tryGrabBitRate(stream, all_streams, total_bit_rate) {
 
   if (total_bit_rate && stream.codec_type === 'video') {
     var estimated_bit_rate = total_bit_rate
-    console.log('ESIMTATED', estimated_bit_rate)
     all_streams.forEach((stream) => {
       if (stream.bit_rate && !isNaN(stream.bit_rate)) {
         estimated_bit_rate -= Number(stream.bit_rate)
       }
     })
     if (!all_streams.find(s => s.codec_type === 'audio' && s.bit_rate && Number(s.bit_rate) > estimated_bit_rate)) {
-      console.log('return est')
       return estimated_bit_rate
     } else {
       return total_bit_rate
@@ -142,6 +136,14 @@ function parseProbeData(data) {
     cleanedData.video_stream = cleaned_streams.find(s => s.type === 'video')
     cleanedData.audio_streams = cleaned_streams.filter(s => s.type === 'audio')
     cleanedData.subtitle_streams = cleaned_streams.filter(s => s.type === 'subtitle')
+
+    if (cleanedData.audio_streams.length && cleanedData.video_stream) {
+      var videoBitrate = cleanedData.video_stream.bit_rate
+      // If audio stream bitrate larger then video, most likely incorrect
+      if (cleanedData.audio_streams.find(astream => astream.bit_rate > videoBitrate)) {
+        cleanedData.video_stream.bit_rate = cleanedData.bit_rate
+      }
+    }
 
     return cleanedData
   } catch (error) {
