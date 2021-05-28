@@ -102,11 +102,11 @@ class StreamSession extends EventsEmitter {
       awaitWriteFinish: {
         stabilityThreshold: 500,
         pollInterval: 500
-      }
+      },
+      disableGlobbing: true
     })
     this.watcher
       .on('add', (path) => {
-        console.log('>>>>>>>> NEW FILE', path)
         this.onNewFile(path)
       }).on('error', (error) => {
         Logger.error(`[WATCHER] error: ${error}`)
