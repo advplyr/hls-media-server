@@ -95,9 +95,9 @@ class StreamSession extends EventsEmitter {
     return this.segmentsCreated[variation].has(number)
   }
 
-  initWatcher() {
-    // var paths = [this.streamPath]
-    this.watcher = chokidar.watch(this.outputPath, {
+  async initWatcher() {
+    await fs.ensureDir(this.streamPath)
+    this.watcher = chokidar.watch(this.streamPath, {
       ignoreInitial: true,
       ignored: /(^|[\/\\])\../, // ignore dotfiles
       persistent: true,
@@ -105,8 +105,7 @@ class StreamSession extends EventsEmitter {
         stabilityThreshold: 500,
         pollInterval: 500
       },
-      disableGlobbing: true,
-      usePolling: true
+      disableGlobbing: true
     })
     this.watcher
       .on('add', (path) => {

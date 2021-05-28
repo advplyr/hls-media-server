@@ -37,6 +37,7 @@ class EncodingOptions {
 
     if (!this.qualityOptions.length) {
       console.error('No Quality Options', fileInfo.videoBitrate)
+      this.selectedQualityIndex = 0
       this.qualityOptions = [QualityOptions[0]]
     }
 
