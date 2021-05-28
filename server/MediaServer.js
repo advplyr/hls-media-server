@@ -229,7 +229,6 @@ class MediaServer {
   }
 
   async openStream(requestIp, res, name, filename, sendToPlayer = false) {
-    console.log('Open Stream', this.MEDIA_PATH, 'Filename', filename)
     var filepath = Path.resolve(this.MEDIA_PATH, filename)
     Logger.info('Open Stream for filepath', filepath)
     var exists = await fs.pathExists(filepath)

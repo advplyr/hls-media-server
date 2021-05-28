@@ -30,7 +30,7 @@ module.exports.fetchMediaFiles = async (dir) => {
     return VIDEO_FORMATS.includes(Path.extname(filepath))
   }).map((filepath) => {
     var _filepath = filepath.replace(dir, '')
-    if (_filepath.startsWith('\\')) return _filepath.substr(1)
+    if (_filepath.startsWith('\\') || _filepath.startsWith('/')) return _filepath.substr(1)
     return _filepath
   })
 }
