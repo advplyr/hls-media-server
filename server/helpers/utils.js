@@ -15,7 +15,7 @@ module.exports.formatBytes = (bytes, decimals = 2) => {
 
 async function fetchAllFilesInDir(dir) {
   const entries = await fs.readdir(dir, { withFileTypes: true })
-  const files = entries.filter(file => !file.isDirectory()).map(file => file.name)
+  const files = entries.filter(file => !file.isDirectory()).map(file => Path.join(dir, file.name))
   const folders = entries.filter(folder => folder.isDirectory())
   for (const folder of folders) {
     files.push(...await fetchAllFilesInDir(Path.join(dir, folder.name)))
@@ -28,5 +28,7 @@ module.exports.fetchMediaFiles = async (dir) => {
   var files = await fetchAllFilesInDir(dir)
   return files.filter(filepath => {
     return VIDEO_FORMATS.includes(Path.extname(filepath))
+  }).map((filepath) => {
+    return filepath.replace(dir, '')
   })
 }
