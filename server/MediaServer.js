@@ -86,7 +86,7 @@ class MediaServer {
 
     const requestIp = (typeof req.headers['x-forwarded-for'] === 'string' && req.headers['x-forwarded-for'].split(',').shift()) || req.connection.remoteAddress
     if (!requestIp) {
-      console.error('No IP', requestIp)
+      Logger.error('No IP', requestIp)
       return
     }
 
@@ -100,7 +100,7 @@ class MediaServer {
     }
 
     req.on('close', () => {
-      console.log(`${requestIp} Connection closed`)
+      Logger.info(`${requestIp} Connection closed`)
       if (this.clients[requestIp]) {
         var sessionName = this.clients[requestIp].session
         if (sessionName && this.sessions[sessionName]) {
@@ -136,8 +136,7 @@ class MediaServer {
 
   handleStreamRequest(req, res, sendToPlayer) {
     var filename = req.query.file
-    // var sessionName = req.query.name || slugify(Path.basename(filename, Path.extname(filename)))
-    var sessionName = 'cat'
+    var sessionName = req.query.name || slugify(Path.basename(filename, Path.extname(filename)))
     if (this.sessions[sessionName]) {
       return res.status(500).send('Oops, a session is already running with this name')
     }
@@ -177,7 +176,6 @@ class MediaServer {
       // Quality Changed
       if (segmentVariation !== hlsSession.currentJobQuality) {
         Logger.clearProgress()
-        console.log('Quality option is different', hlsSession.currentJobQuality, segmentVariation)
         var isRestarted = await hlsSession.restart(segmentNumber, segmentVariation)
         if (!isRestarted) {
           return res.sendStatus(500)
@@ -231,7 +229,6 @@ class MediaServer {
 
   async openStream(requestIp, res, name, filename, sendToPlayer = false) {
     var filepath = Path.resolve(this.MEDIA_PATH, filename)
-    Logger.info('Open Stream for filepath', filepath)
     var exists = await fs.pathExists(filepath)
     if (!exists) {
       Logger.log('File not found', filepath)

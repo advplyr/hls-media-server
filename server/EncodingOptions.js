@@ -1,3 +1,4 @@
+var Logger = require('./Logger')
 var { formatBytes } = require('./helpers/utils')
 
 const QualityOptions = [
@@ -24,24 +25,20 @@ class EncodingOptions {
     this.selectedQualityIndex = this.qualityOptions.length - 1
 
     if (this.canDirectStreamVideo) {
-      console.log('Insert direct stream quality')
       var dsOption = { name: this.fileInfo.videoStreamResolution + '_direct', resolution: this.fileInfo.videoHeight, videoBitrate: this.fileInfo.videoBitrate, audioBitrate: this.fileInfo.audioBitrate, isDirectStream: true }
       var indexToInsert = this.qualityOptions.findIndex(opt => opt.videoBitrate < dsOption.videoBitrate)
       if (indexToInsert < 0) {
         indexToInsert = this.qualityOptions.length
         this.qualityOptions.push(dsOption)
       } else this.qualityOptions.splice(indexToInsert, 0, dsOption)
-      console.log('Inserted direct stream option', dsOption, 'into idnex', indexToInsert)
       this.selectedQualityIndex = indexToInsert
     }
 
     if (!this.qualityOptions.length) {
-      console.error('No Quality Options', fileInfo.videoBitrate)
+      Logger.error('No Quality Options', fileInfo.videoBitrate)
       this.selectedQualityIndex = 0
       this.qualityOptions = [QualityOptions[0]]
     }
-
-    console.log('Quality options', this.qualityOptions, this.selectedQuality)
   }
 
   get resolutionWidth() {
@@ -61,7 +58,7 @@ class EncodingOptions {
   }
   get selectedQualityName() {
     if (!this.selectedQuality) {
-      console.error('No Quality Selected')
+      Logger.error('No Quality Selected')
       return 'ERROR'
     }
     return this.selectedQuality.name
@@ -225,7 +222,7 @@ class EncodingOptions {
   setSelectedQuality(name) {
     var qualityIndex = this.qualityOptions.findIndex(qopt => qopt.name === name)
     if (qualityIndex < 0) {
-      console.error('Quality not found', name)
+      Logger.error('Quality not found', name)
       return false
     }
     this.selectedQualityIndex = qualityIndex

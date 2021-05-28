@@ -246,14 +246,13 @@ class StreamSession extends EventsEmitter {
   }
 
   cleanupMess(caller = 'unknown') {
-    console.log('Cleaning up mess', caller)
+    Logger.info('Cleaning up mess', caller)
     this.stop()
     return this.deleteAllFiles()
   }
 
   stop() {
     if (this.watcher) {
-      console.log('>>>>>>>>>> REMOVED WATCHER')
       this.watcher.removeAllListeners()
       this.watcher = null
     }
