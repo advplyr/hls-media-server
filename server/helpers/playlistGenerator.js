@@ -39,7 +39,6 @@ function generateMasterPlaylist(masterPlaylistPath, encodingOptions) {
   })
 }
 
-// Now generating playlist from https://github.com/mcoop320/hls-playlist-generator
 // function generatePlaylist(playlistPath, segmentName, encodingOptions) {
 //   var m3u8 = '#EXTM3U\n'
 //   m3u8 += '#EXT-X-PLAYLIST-TYPE:VOD\n'
@@ -72,6 +71,11 @@ function generateMasterPlaylist(masterPlaylistPath, encodingOptions) {
 module.exports = (filepath, masterPlaylistPath, streamPath, encodingOptions) => {
   return generateMasterPlaylist(masterPlaylistPath, encodingOptions).then(async (mSuccess) => {
     if (!mSuccess) return false
+    // var hpgOptions = {
+    //   segmentLength: encodingOptions.segmentLength,
+    //   duration: encodingOptions.duration
+    // }
+    // var segments = await hpg.segments(filepath, hpgOptions)
     var segments = await hpg.segments(filepath, encodingOptions.segmentLength, encodingOptions.duration)
     encodingOptions.segmentTimestamps = segments
 

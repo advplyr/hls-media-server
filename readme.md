@@ -2,7 +2,7 @@
 
 Node server to transcode video files and stream on the fly via HLS.
 
-This is a work in progress & playground.
+### *This is a work in progress & playground for HLS streaming. Not production ready!
 
 #### Note: requires **[ffmpeg](http://ffmpeg.org)**
 
@@ -24,7 +24,7 @@ Generate the full `.m3u8` playlist immediately so the client behaves as if the e
 6. Listen for `.m3u8` and `.ts` requests from client player (HLS.js)
 
 
-<img src="https://raw.githubusercontent.com/mcoop320/hls-media-server/master/samples/terminal_seeking.png" />
+<img src="https://raw.githubusercontent.com/advplyr/hls-media-server/master/samples/terminal_seeking.png" />
 Terminal displays which chunks of the video have been created by Ffmpeg and which have been fetched by client already. Green arrow is the segment being tracked as the "currentSegment" for the purpose of detecting when a seek has occurred.
 
 
@@ -43,7 +43,7 @@ Go to `localhost:4000` to view a list of files and open a stream session.
 #### Note: All sessions are closed and HLS files are deleted on SIGINT.
 
 
-<img src="https://raw.githubusercontent.com/mcoop320/hls-media-server/master/samples/terminal_full.png" />
+<img src="https://raw.githubusercontent.com/advplyr/hls-media-server/master/samples/terminal_full.png" />
 
 
 ## To Do

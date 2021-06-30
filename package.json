@@ -7,7 +7,7 @@
     "start": "node ./index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "mcoop320",
+  "author": "advplyr",
   "license": "ISC",
   "keywords": [
     "hls",
@@ -24,7 +24,7 @@
     "express": "^4.17.1",
     "fluent-ffmpeg": "^2.1.2",
     "fs-extra": "^10.0.0",
-    "hls-playlist-generator": "^1.0.11",
+    "hls-playlist-generator": "^1.0.12",
     "squirrelly": "^8.0.8",
     "terminal-overwrite": "^2.0.1"
   }

@@ -248,7 +248,17 @@
         volumeSvgPath.setAttribute('d', video.muted ? volumeOffD : volumeHighD)
       })
 
-      var hls = new Hls({ startLevel: 2, abrEwmaDefaultEstimate: 4000000, maxBufferLength: 1, maxLoadingDelay: 10, fragLoadingMaxRetry: 10 });
+      const hlsConfig = {
+        // startLevel: -1,
+        // abrEwmaDefaultEstimate: 10000000,
+        maxBufferLength: 3,
+        // maxLoadingDelay: 10,
+        // fragLoadingMaxRetry: 10,
+        // fragLoadingRetryDelay: 4000,
+        // maxStarvationDelay: 10,
+        autoStartLoad: false
+      }
+      var hls = new Hls(hlsConfig);
 
       // bind them together
       hls.attachMedia(video);
@@ -259,10 +269,7 @@
           console.log('AutoLevelEnabled:', hls.autoLevelEnabled, 'First Level:', hls.firstLevel, hls.startLevel, hls.currentLevel)
           console.log('Bandwidth estimate', hls.bandwidthEstimate)
 
-          var beElem = document.getElementById('bandwidthEstimate')
-          if (beElem) {
-            beElem.innerHTML = `Bandwidth Estimate: ${hls.bandwidthEstimate}`
-          }
+          setBandwidthEstimate()
 
           var index = 0
           var btnWrapper = document.getElementById('qualityBtnWrapper')
@@ -278,6 +285,9 @@
             btnWrapper.appendChild(btn)
             index++
           })
+          hls.startLevel = hls.levels.length - 1
+          hls.startLoad()
+          // hls.currentLevel = hls.levels.length - 1
           video.play()
         });
 
@@ -313,10 +323,7 @@
 
         hls.on(Hls.Events.LEVEL_SWITCHING, (event, data) => {
           // console.log('LEVEL SWITCHING', hls.bandwidthEstimate, data)
-          var beElem = document.getElementById('bandwidthEstimate')
-          if (beElem) {
-            beElem.innerHTML = `Bandwidth Estimate: ${formatBytes(hls.bandwidthEstimate)} - ${formatBytes(hls.bandwidthEstimate * 0.7)}`
-          }
+          setBandwidthEstimate()
         })
       });
 
@@ -367,6 +374,13 @@
       video.addEventListener('pause', () => {
         playPausePath.setAttribute('d', playPathD)
       })
+
+      function setBandwidthEstimate() {
+        var beElem = document.getElementById('bandwidthEstimate')
+        if (beElem) {
+          beElem.innerHTML = `Bandwidth Estimate: ${formatBytes(hls.bandwidthEstimate)} - ${formatBytes(hls.bandwidthEstimate * 0.7)}`
+        }
+      }
 
       function setQual(index) {
         hls.currentLevel = index
